@@ -1,0 +1,147 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg: #0F1114;
+  --sf: #1A1D23;
+  --bd: #2A2E37;
+  --bf: #F59E0B;
+  --tx: #E8E9EB;
+  --tm: #8B8F98;
+  --ac: #F59E0B;
+  --acd: #D97706;
+  --abg: rgba(245, 158, 11, 0.08);
+  --dn: #EF4444;
+  --ok: #22C55E;
+  --fn: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--fn);
+  background: var(--bg);
+  color: var(--tx);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: rgba(245, 158, 11, 0.3);
+}
+
+input:focus, select:focus {
+  border-color: var(--bf) !important;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.15);
+  outline: none;
+}
+
+input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--ac);
+}
+
+button {
+  cursor: pointer;
+  font-family: var(--fn);
+}
+
+button:hover {
+  opacity: 0.85;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bd);
+  border-radius: 3px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Print-specific styles ─── */
+@media print {
+  body {
+    background: white;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-page {
+    margin: 0;
+    padding: 14mm 16mm;
+    box-shadow: none;
+    max-width: none;
+  }
+}
+
+@media screen {
+  .print-bar {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: var(--sf);
+    padding: 10px 20px;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 999;
+    border-bottom: 1px solid var(--bd);
+  }
+
+  .print-page {
+    max-width: 210mm;
+    margin: 60px auto 20px;
+    background: #fff;
+    padding: 22mm 18mm;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* ─── Invoice table (used in PDF view) ─── */
+.inv-tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.inv-tbl th {
+  text-align: left;
+  padding: 7px 8px;
+  border-bottom: 2px solid #E5E2DB;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-family: var(--fn);
+  color: #6B7280;
+  font-weight: 600;
+}
+.inv-tbl td {
+  padding: 7px 8px;
+  border-bottom: 1px solid #E5E2DB;
+  vertical-align: top;
+}
+.inv-tbl .r {
+  text-align: right;
+  font-family: var(--fn);
+  font-size: 11px;
+}
+.inv-tbl tfoot td {
+  border-bottom: none;
+}
