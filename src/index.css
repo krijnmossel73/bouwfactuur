@@ -1,17 +1,17 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 :root {
-  --bg: #0F1114;
-  --sf: #1A1D23;
-  --bd: #2A2E37;
-  --bf: #F59E0B;
-  --tx: #E8E9EB;
-  --tm: #8B8F98;
-  --ac: #F59E0B;
-  --acd: #D97706;
-  --abg: rgba(245, 158, 11, 0.08);
-  --dn: #EF4444;
-  --ok: #22C55E;
+  --bg: #111318;
+  --sf: #1B1D25;
+  --bd: #363B47;
+  --bf: #FBBF24;
+  --tx: #F1F2F4;
+  --tm: #A0A7B5;
+  --ac: #FBBF24;
+  --acd: #E5A50F;
+  --abg: rgba(251, 191, 36, 0.07);
+  --dn: #F87171;
+  --ok: #4ADE80;
   --fn: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
 }
 
