@@ -8,6 +8,7 @@ Compliant invoicing tool for Dutch construction companies. Handles BTW verlegd (
 - **G-rekening splitsing** — labor/material separation with trade-specific percentages (source: Bouwend Nederland)
 - **Wka-vermelding** — mandatory chain liability documentation on every invoice
 - **PDF export** — clean A4 print layout via browser print-to-PDF
+- **VIES validation** — real-time BTW number verification against the official EC VIES API, with auto-fill of company name/address
 - **Persistent storage** — company profiles, clients, and invoice history saved across sessions
 - **Auto-numbering** — sequential invoice numbers that persist across sessions
 
@@ -59,11 +60,17 @@ src/
 ├── App.jsx           # Main editor (4-step wizard)
 ├── InvoicePDF.jsx    # Print-ready A4 invoice view
 ├── InvoiceHistory.jsx# Saved invoice list
+├── ViesButton.jsx    # VIES validation button component
+├── vies.js           # VIES API client + format validation
 ├── storage.js        # Storage abstraction (localStorage)
 ├── constants.js      # Trade percentages, blank templates
 ├── utils.js          # Formatting, calculations
 ├── styles.js         # Shared inline style objects
 └── Icons.jsx         # SVG icon components
+
+functions/
+└── api/
+    └── vies.js       # Cloudflare Pages Function — VIES proxy
 ```
 
 ## Storage Layer
@@ -112,7 +119,7 @@ If you prefer staying fully in the Cloudflare ecosystem, use D1 (serverless SQLi
 
 ## Roadmap
 
-- [ ] VIES API integration for BTW number validation
+- [x] VIES API integration for BTW number validation
 - [ ] KvK API for auto-filling company details
 - [ ] DICO SALES005 XML export
 - [ ] Peppol e-invoicing support
