@@ -18,7 +18,7 @@ export const CopyIcon  = () => <I d="M20 9h-9a2 2 0 00-2 2v9a2 2 0 002 2h9a2 2 0
 
 export const LogoIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-    stroke="var(--bg)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M3 21h18M5 21V7l8-4v18M13 21V3l6 4v14" />
     <path d="M9 9h1M9 13h1" />
   </svg>
