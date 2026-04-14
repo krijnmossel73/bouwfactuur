@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { storageGet, storageSet, KEYS } from './storage.js';
+import { storageGet, storageSet, setStorageUser, KEYS } from './storage.js';
 import { TRADE_PERCENTAGES, BLANK_OA, BLANK_OG, BLANK_PROJECT, BLANK_LINE } from './constants.js';
 import { fmt, fmtDate, calcVerval, makeInvoiceNumber, calcTotals } from './utils.js';
 import { PlusIcon, TrashIcon, FileIcon, EyeIcon, BldgIcon, SaveIcon, DownIcon, ListIcon, LogoIcon } from './Icons.jsx';
@@ -34,6 +34,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const [profLoaded, setProfLoaded] = useState(false);
+  const [user, setUser] = useState(null); // { email, id } or null
 
   const gPerc = customGPerc !== null ? customGPerc : (TRADE_PERCENTAGES[oa.trade] || 40);
   const totals = calcTotals(lines, btwVerlegd, useGrek, gPerc);
@@ -41,9 +42,24 @@ export default function App() {
 
   const flash = (m) => { setToast(m); setTimeout(() => setToast(null), 2500); };
 
-  // ── Load persisted data on mount ──
+  // ── Load: check auth first, then load user-scoped data ──
   useEffect(() => {
     (async () => {
+      // 1. Check Cloudflare Access auth
+      try {
+        const authRes = await fetch('/api/auth/me');
+        if (authRes.ok) {
+          const authData = await authRes.json();
+          if (authData.authenticated) {
+            setUser({ email: authData.email, id: authData.id });
+            setStorageUser(authData.email);
+          }
+        }
+      } catch {
+        // Auth endpoint not available (local dev) — continue without auth
+      }
+
+      // 2. Load user-scoped persisted data
       const [prof, cls, invs, nn] = await Promise.all([
         storageGet(KEYS.profile, null),
         storageGet(KEYS.clients, []),
@@ -201,7 +217,7 @@ export default function App() {
       {toast && (
         <div style={{
           position: 'fixed', top: '12px', left: '50%', transform: 'translateX(-50%)',
-          background: 'var(--ac)', color: 'var(--bg)', padding: '10px 18px', borderRadius: '6px',
+          background: 'var(--ac)', color: '#FFFFFF', padding: '10px 18px', borderRadius: '6px',
           fontSize: '11px', fontWeight: 700, zIndex: 999, letterSpacing: '.04em',
           boxShadow: '0 4px 12px rgba(217,119,6,.2)', animation: 'fadeIn .2s ease',
         }}>
@@ -226,9 +242,18 @@ export default function App() {
               BOUWFACTUUR
             </div>
           </div>
-          <button onClick={() => setView('history')} style={{ ...btn2, padding: '6px 10px', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <ListIcon /> {invoices.length}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {user && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: 'var(--abg)', borderRadius: '4px', border: '1px solid var(--bd)' }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--tm)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                <span style={{ fontSize: '10px', color: 'var(--tm)', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</span>
+                <a href={`https://${window.location.host}/cdn-cgi/access/logout`} style={{ fontSize: '9px', color: 'var(--dn)', textDecoration: 'none', marginLeft: '2px' }} title="Uitloggen">✕</a>
+              </div>
+            )}
+            <button onClick={() => setView('history')} style={{ ...btn2, padding: '6px 10px', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <ListIcon /> {invoices.length}
+            </button>
+          </div>
         </div>
 
         {/* Step progress */}
