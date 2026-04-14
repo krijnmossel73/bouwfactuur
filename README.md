@@ -12,7 +12,8 @@ Compliant invoicing tool for Dutch construction companies. Handles BTW verlegd (
 - **KvK integration** — look up companies by KvK-nummer via the KvK Zoeken API, auto-fills name/address fields (free test environment included)
 - **DICO/NLCIUS XML export** — generate UBL 2.1 NLCIUS-compliant invoice XML with construction-specific fields (G-rekening, btw verlegd, Wka), compatible with Peppol and DICO service providers
 - **Peppol e-invoicing** — look up recipients in the Peppol Directory and send invoices directly via a Peppol Access Point (Storecove, eConnect, or custom provider)
-- **Persistent storage** — company profiles, clients, and invoice history saved across sessions
+- **Authentication** — Cloudflare Access integration with email OTP, per-user data isolation, and zero-password login
+- **Persistent storage** — company profiles, clients, and invoice history saved per user across sessions
 - **Auto-numbering** — sequential invoice numbers that persist across sessions
 
 ## Quick Start
@@ -77,7 +78,10 @@ src/
 └── Icons.jsx         # SVG icon components
 
 functions/
+├── _middleware.js # Extracts user identity from Cloudflare Access JWT
 └── api/
+    ├── auth/
+    │   └── me.js     # Returns current user identity
     ├── vies.js       # Cloudflare Pages Function — VIES proxy
     ├── kvk.js        # Cloudflare Pages Function — KvK proxy
     └── peppol/
@@ -140,6 +144,38 @@ To use real company data, you need a KvK API subscription:
 3. In Cloudflare Pages → Settings → Environment variables, add: `KVK_API_KEY` = your key
 4. Redeploy — the proxy function will automatically use the production endpoint
 
+## Authentication (Cloudflare Access)
+
+The app supports Cloudflare Access for authentication. When enabled, users log in via email OTP (one-time PIN) — no passwords needed. Each user's data (profile, clients, invoices) is automatically isolated.
+
+### Setup (5 minutes)
+
+1. Go to [Cloudflare Zero Trust](https://one.dash.cloudflare.com/) → Access → Applications
+2. Click **Add an application** → **Self-hosted**
+3. Configure:
+   - **Application name:** BouwFactuur
+   - **Session duration:** 24 hours (or your preference)
+   - **Application domain:** `bouwfactuur.pages.dev` (or your custom domain)
+4. Add a policy:
+   - **Policy name:** Allow users
+   - **Action:** Allow
+   - **Include rule:** Emails ending in `@yourdomain.com` (or specific email addresses)
+5. For the identity provider, **One-time PIN** works out of the box (no IdP setup needed)
+6. Save — authentication is now active
+
+### How it works
+
+- Cloudflare Access handles the entire login flow (login page, email OTP, session management)
+- The app's `functions/_middleware.js` extracts the user email from the `Cf-Access-Jwt-Assertion` header
+- The frontend calls `/api/auth/me` on load to get the current user's identity
+- Storage keys are scoped per user — each user gets their own profile, clients, and invoice history
+- The user's email appears in the header with a logout link
+- Logout URL: `/cdn-cgi/access/logout` (handled by Cloudflare)
+
+### Free tier
+
+Cloudflare Access is free for up to 50 users, which is plenty for an early-stage micro-SaaS.
+
 ## Peppol e-Invoicing
 
 The app includes a **Peppol Directory lookup** (free, no setup needed) to check if a recipient can receive invoices via the Peppol network. This uses the public directory at `directory.peppol.eu`.
@@ -168,8 +204,9 @@ For Dutch companies, the Peppol participant ID uses scheme `0106` (KvK number).
 - [x] Light mode UI
 - [x] DICO/NLCIUS UBL 2.1 XML export
 - [x] Peppol e-invoicing support (directory lookup + send via Access Point)
+- [x] Authentication via Cloudflare Access (email OTP, per-user data isolation)
 - [ ] Server-side PDF generation (Cloudflare Worker + Puppeteer)
-- [ ] Authentication (Supabase Auth or Cloudflare Access)
+- [ ] Cloudflare D1 for server-side storage
 - [ ] Landing page for bouwbedrijven
 
 ## License
