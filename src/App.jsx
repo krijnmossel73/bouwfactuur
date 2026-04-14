@@ -7,6 +7,7 @@ import { inp, sel, lbl, btn1, btn2, sec, g2, full, crd, chk, nfo, sinp } from '.
 import InvoicePDF from './InvoicePDF.jsx';
 import InvoiceHistory from './InvoiceHistory.jsx';
 import ViesButton from './ViesButton.jsx';
+import KvkButton from './KvkButton.jsx';
 
 const STEPS = ['Profiel', 'Klant', 'Regels', 'Factuur'];
 
@@ -264,7 +265,12 @@ export default function App() {
               <div style={full}><span style={lbl}>Adres</span><input style={inp} value={oa.adres} onChange={(e) => setOa({ ...oa, adres: e.target.value })} placeholder="Bouwstraat 12" /></div>
               <div><span style={lbl}>Postcode</span><input style={inp} value={oa.postcode} onChange={(e) => setOa({ ...oa, postcode: e.target.value })} placeholder="1234 AB" /></div>
               <div><span style={lbl}>Plaats</span><input style={inp} value={oa.plaats} onChange={(e) => setOa({ ...oa, plaats: e.target.value })} placeholder="Purmerend" /></div>
-              <div><span style={lbl}>KvK-nummer</span><input style={inp} value={oa.kvk} onChange={(e) => setOa({ ...oa, kvk: e.target.value })} placeholder="12345678" /></div>
+              <div><span style={lbl}>KvK-nummer</span><input style={inp} value={oa.kvk} onChange={(e) => setOa({ ...oa, kvk: e.target.value })} placeholder="12345678" /><KvkButton kvkValue={oa.kvk} onResult={(c) => {
+                if (c.naam && !oa.naam) setOa((p) => ({ ...p, naam: c.naam }));
+                if (c.adres && !oa.adres) setOa((p) => ({ ...p, adres: c.adres }));
+                if (c.postcode && !oa.postcode) setOa((p) => ({ ...p, postcode: c.postcode }));
+                if (c.plaats && !oa.plaats) setOa((p) => ({ ...p, plaats: c.plaats }));
+              }} /></div>
               <div><span style={lbl}>BTW-nummer</span><input style={inp} value={oa.btw} onChange={(e) => setOa({ ...oa, btw: e.target.value })} placeholder="NL123456789B01" /><ViesButton btwValue={oa.btw} /></div>
               <div><span style={lbl}>IBAN (normaal)</span><input style={inp} value={oa.iban} onChange={(e) => setOa({ ...oa, iban: e.target.value })} placeholder="NL91ABNA0417164300" /></div>
               <div><span style={lbl}>G-rekening IBAN</span><input style={inp} value={oa.gRekening} onChange={(e) => setOa({ ...oa, gRekening: e.target.value })} placeholder="NL91ABNA0990000000" /></div>
@@ -300,7 +306,12 @@ export default function App() {
               <div style={full}><span style={lbl}>Adres</span><input style={inp} value={og.adres} onChange={(e) => setOg({ ...og, adres: e.target.value })} placeholder="Industrieweg 45" /></div>
               <div><span style={lbl}>Postcode</span><input style={inp} value={og.postcode} onChange={(e) => setOg({ ...og, postcode: e.target.value })} placeholder="5678 CD" /></div>
               <div><span style={lbl}>Plaats</span><input style={inp} value={og.plaats} onChange={(e) => setOg({ ...og, plaats: e.target.value })} placeholder="Rotterdam" /></div>
-              <div><span style={lbl}>KvK-nummer</span><input style={inp} value={og.kvk} onChange={(e) => setOg({ ...og, kvk: e.target.value })} placeholder="87654321" /></div>
+              <div><span style={lbl}>KvK-nummer</span><input style={inp} value={og.kvk} onChange={(e) => setOg({ ...og, kvk: e.target.value })} placeholder="87654321" /><KvkButton kvkValue={og.kvk} onResult={(c) => {
+                if (c.naam && !og.naam) setOg((p) => ({ ...p, naam: c.naam }));
+                if (c.adres && !og.adres) setOg((p) => ({ ...p, adres: c.adres }));
+                if (c.postcode && !og.postcode) setOg((p) => ({ ...p, postcode: c.postcode }));
+                if (c.plaats && !og.plaats) setOg((p) => ({ ...p, plaats: c.plaats }));
+              }} /></div>
               <div><span style={lbl}>BTW-nummer</span><input style={inp} value={og.btw} onChange={(e) => setOg({ ...og, btw: e.target.value })} placeholder="NL987654321B01" /><ViesButton btwValue={og.btw} onResult={(r) => {
                 if (r.name && !og.naam) setOg((prev) => ({ ...prev, naam: r.name }));
                 if (r.address && !og.adres) {
