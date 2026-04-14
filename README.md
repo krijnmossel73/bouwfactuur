@@ -10,6 +10,7 @@ Compliant invoicing tool for Dutch construction companies. Handles BTW verlegd (
 - **PDF export** — clean A4 print layout via browser print-to-PDF
 - **VIES validation** — real-time BTW number verification against the official EC VIES API, with auto-fill of company name/address
 - **KvK integration** — look up companies by KvK-nummer via the KvK Zoeken API, auto-fills name/address fields (free test environment included)
+- **DICO/NLCIUS XML export** — generate UBL 2.1 NLCIUS-compliant invoice XML with construction-specific fields (G-rekening, btw verlegd, Wka), compatible with Peppol and DICO service providers
 - **Persistent storage** — company profiles, clients, and invoice history saved across sessions
 - **Auto-numbering** — sequential invoice numbers that persist across sessions
 
@@ -65,6 +66,7 @@ src/
 ├── vies.js           # VIES API client + format validation
 ├── KvkButton.jsx     # KvK lookup button component
 ├── kvk.js            # KvK API client
+├── invoiceXml.js     # DICO/NLCIUS UBL 2.1 XML generator
 ├── storage.js        # Storage abstraction (localStorage)
 ├── constants.js      # Trade percentages, blank templates
 ├── utils.js          # Formatting, calculations
@@ -137,8 +139,9 @@ To use real company data, you need a KvK API subscription:
 - [x] VIES API integration for BTW number validation
 - [x] KvK API for auto-filling company details (test env; set `KVK_API_KEY` env var for production)
 - [x] Improved color palette for readability
-- [ ] DICO SALES005 XML export
-- [ ] Peppol e-invoicing support
+- [x] Light mode UI
+- [x] DICO/NLCIUS UBL 2.1 XML export
+- [ ] Peppol e-invoicing support (direct submission via Peppol Access Point)
 - [ ] Server-side PDF generation (Cloudflare Worker + Puppeteer)
 - [ ] Authentication (Supabase Auth or Cloudflare Access)
 - [ ] Landing page for bouwbedrijven
