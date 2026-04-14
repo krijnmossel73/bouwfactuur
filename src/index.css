@@ -1,17 +1,17 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 :root {
-  --bg: #111318;
-  --sf: #1B1D25;
-  --bd: #363B47;
-  --bf: #FBBF24;
-  --tx: #F1F2F4;
-  --tm: #A0A7B5;
-  --ac: #FBBF24;
-  --acd: #E5A50F;
-  --abg: rgba(251, 191, 36, 0.07);
-  --dn: #F87171;
-  --ok: #4ADE80;
+  --bg: #F5F6F8;
+  --sf: #FFFFFF;
+  --bd: #D4D8E0;
+  --bf: #D97706;
+  --tx: #1A1D26;
+  --tm: #5F6672;
+  --ac: #D97706;
+  --acd: #B45309;
+  --abg: rgba(217, 119, 6, 0.06);
+  --dn: #DC2626;
+  --ok: #16A34A;
   --fn: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
 }
 
@@ -30,12 +30,12 @@ body {
 }
 
 ::selection {
-  background: rgba(245, 158, 11, 0.3);
+  background: rgba(217, 119, 6, 0.2);
 }
 
 input:focus, select:focus {
   border-color: var(--bf) !important;
-  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.15);
+  box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.12);
   outline: none;
 }
 
@@ -64,6 +64,9 @@ button:hover {
 ::-webkit-scrollbar-thumb {
   background: var(--bd);
   border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #B0B6C0;
 }
 
 @keyframes fadeIn {
