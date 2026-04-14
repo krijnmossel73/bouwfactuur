@@ -9,6 +9,7 @@ import InvoiceHistory from './InvoiceHistory.jsx';
 import ViesButton from './ViesButton.jsx';
 import KvkButton from './KvkButton.jsx';
 import { generateInvoiceXML, downloadXML } from './invoiceXml.js';
+import PeppolPanel from './PeppolPanel.jsx';
 
 const STEPS = ['Profiel', 'Klant', 'Regels', 'Factuur'];
 
@@ -498,6 +499,14 @@ export default function App() {
                 <SaveIcon /> Opslaan
               </button>
             </div>
+
+            {/* Peppol e-Invoicing */}
+            <PeppolPanel
+              recipientKvk={og.kvk}
+              recipientName={og.naam}
+              senderKvk={oa.kvk}
+              onGenerateXml={() => generateInvoiceXML({ oa, og, project, lines, totals, btwVerlegd, useGrek, gPerc })}
+            />
           </div>
         )}
 
