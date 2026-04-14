@@ -9,6 +9,7 @@ Compliant invoicing tool for Dutch construction companies. Handles BTW verlegd (
 - **Wka-vermelding** — mandatory chain liability documentation on every invoice
 - **PDF export** — clean A4 print layout via browser print-to-PDF
 - **VIES validation** — real-time BTW number verification against the official EC VIES API, with auto-fill of company name/address
+- **KvK integration** — look up companies by KvK-nummer via the KvK Zoeken API, auto-fills name/address fields (free test environment included)
 - **Persistent storage** — company profiles, clients, and invoice history saved across sessions
 - **Auto-numbering** — sequential invoice numbers that persist across sessions
 
@@ -62,6 +63,8 @@ src/
 ├── InvoiceHistory.jsx# Saved invoice list
 ├── ViesButton.jsx    # VIES validation button component
 ├── vies.js           # VIES API client + format validation
+├── KvkButton.jsx     # KvK lookup button component
+├── kvk.js            # KvK API client
 ├── storage.js        # Storage abstraction (localStorage)
 ├── constants.js      # Trade percentages, blank templates
 ├── utils.js          # Formatting, calculations
@@ -70,7 +73,8 @@ src/
 
 functions/
 └── api/
-    └── vies.js       # Cloudflare Pages Function — VIES proxy
+    ├── vies.js       # Cloudflare Pages Function — VIES proxy
+    └── kvk.js        # Cloudflare Pages Function — KvK proxy
 ```
 
 ## Storage Layer
@@ -117,10 +121,22 @@ If you prefer staying fully in the Cloudflare ecosystem, use D1 (serverless SQLi
 2. Add a `/functions/api/storage.js` Pages Function
 3. Point `storage.js` to fetch from your API
 
+## KvK API
+
+The app uses the KvK Zoeken API to look up companies by KvK number. It works out of the box with the **free test environment** (limited to fictitious data like "Test BV Donald").
+
+To use real company data, you need a KvK API subscription:
+
+1. Apply at [developers.kvk.nl](https://developers.kvk.nl/apply-for-apis)
+2. Get your API key from the KvK Developer Portal
+3. In Cloudflare Pages → Settings → Environment variables, add: `KVK_API_KEY` = your key
+4. Redeploy — the proxy function will automatically use the production endpoint
+
 ## Roadmap
 
 - [x] VIES API integration for BTW number validation
-- [ ] KvK API for auto-filling company details
+- [x] KvK API for auto-filling company details (test env; set `KVK_API_KEY` env var for production)
+- [x] Improved color palette for readability
 - [ ] DICO SALES005 XML export
 - [ ] Peppol e-invoicing support
 - [ ] Server-side PDF generation (Cloudflare Worker + Puppeteer)
