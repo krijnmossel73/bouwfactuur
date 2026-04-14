@@ -11,6 +11,7 @@ Compliant invoicing tool for Dutch construction companies. Handles BTW verlegd (
 - **VIES validation** — real-time BTW number verification against the official EC VIES API, with auto-fill of company name/address
 - **KvK integration** — look up companies by KvK-nummer via the KvK Zoeken API, auto-fills name/address fields (free test environment included)
 - **DICO/NLCIUS XML export** — generate UBL 2.1 NLCIUS-compliant invoice XML with construction-specific fields (G-rekening, btw verlegd, Wka), compatible with Peppol and DICO service providers
+- **Peppol e-invoicing** — look up recipients in the Peppol Directory and send invoices directly via a Peppol Access Point (Storecove, eConnect, or custom provider)
 - **Persistent storage** — company profiles, clients, and invoice history saved across sessions
 - **Auto-numbering** — sequential invoice numbers that persist across sessions
 
@@ -67,6 +68,8 @@ src/
 ├── KvkButton.jsx     # KvK lookup button component
 ├── kvk.js            # KvK API client
 ├── invoiceXml.js     # DICO/NLCIUS UBL 2.1 XML generator
+├── peppol.js         # Peppol directory lookup + send client
+├── PeppolPanel.jsx   # Peppol lookup + send UI panel
 ├── storage.js        # Storage abstraction (localStorage)
 ├── constants.js      # Trade percentages, blank templates
 ├── utils.js          # Formatting, calculations
@@ -76,7 +79,10 @@ src/
 functions/
 └── api/
     ├── vies.js       # Cloudflare Pages Function — VIES proxy
-    └── kvk.js        # Cloudflare Pages Function — KvK proxy
+    ├── kvk.js        # Cloudflare Pages Function — KvK proxy
+    └── peppol/
+        ├── lookup.js # Peppol Directory lookup proxy
+        └── send.js   # Peppol Access Point send proxy
 ```
 
 ## Storage Layer
@@ -134,6 +140,26 @@ To use real company data, you need a KvK API subscription:
 3. In Cloudflare Pages → Settings → Environment variables, add: `KVK_API_KEY` = your key
 4. Redeploy — the proxy function will automatically use the production endpoint
 
+## Peppol e-Invoicing
+
+The app includes a **Peppol Directory lookup** (free, no setup needed) to check if a recipient can receive invoices via the Peppol network. This uses the public directory at `directory.peppol.eu`.
+
+To actually **send** invoices via Peppol, you need a subscription with a Peppol Access Point provider. Recommended NL providers:
+
+- **[Storecove](https://www.storecove.com)** — NL-based, free 30-day sandbox, REST API
+- **[eConnect](https://econnect.eu)** — construction-sector focused, DICO integration
+
+### Setup
+
+1. Sign up with your chosen provider and get an API key
+2. In Cloudflare Pages → Settings → Environment variables, add:
+   - `PEPPOL_API_KEY` — your API key
+   - `PEPPOL_PROVIDER` — `storecove` or `econnect` (default: storecove)
+   - `PEPPOL_SENDER_ID` — your legal entity ID from the provider
+3. Redeploy — the "Verzend via Peppol" button will become active
+
+For Dutch companies, the Peppol participant ID uses scheme `0106` (KvK number).
+
 ## Roadmap
 
 - [x] VIES API integration for BTW number validation
@@ -141,7 +167,7 @@ To use real company data, you need a KvK API subscription:
 - [x] Improved color palette for readability
 - [x] Light mode UI
 - [x] DICO/NLCIUS UBL 2.1 XML export
-- [ ] Peppol e-invoicing support (direct submission via Peppol Access Point)
+- [x] Peppol e-invoicing support (directory lookup + send via Access Point)
 - [ ] Server-side PDF generation (Cloudflare Worker + Puppeteer)
 - [ ] Authentication (Supabase Auth or Cloudflare Access)
 - [ ] Landing page for bouwbedrijven
