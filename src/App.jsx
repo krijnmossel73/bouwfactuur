@@ -8,6 +8,7 @@ import InvoicePDF from './InvoicePDF.jsx';
 import InvoiceHistory from './InvoiceHistory.jsx';
 import ViesButton from './ViesButton.jsx';
 import KvkButton from './KvkButton.jsx';
+import { generateInvoiceXML, downloadXML } from './invoiceXml.js';
 
 const STEPS = ['Profiel', 'Klant', 'Regels', 'Factuur'];
 
@@ -201,7 +202,7 @@ export default function App() {
           position: 'fixed', top: '12px', left: '50%', transform: 'translateX(-50%)',
           background: 'var(--ac)', color: 'var(--bg)', padding: '10px 18px', borderRadius: '6px',
           fontSize: '11px', fontWeight: 700, zIndex: 999, letterSpacing: '.04em',
-          boxShadow: '0 4px 12px rgba(245,158,11,.3)', animation: 'fadeIn .2s ease',
+          boxShadow: '0 4px 12px rgba(217,119,6,.2)', animation: 'fadeIn .2s ease',
         }}>
           {toast}
         </div>
@@ -418,7 +419,7 @@ export default function App() {
             <div style={sec}><EyeIcon /> Factuurvoorbeeld</div>
 
             {/* Compact in-app preview */}
-            <div style={{ background: '#FEFDFB', borderRadius: '8px', padding: '18px', color: '#1A1A1A', fontFamily: "Georgia,serif", fontSize: '11px', lineHeight: 1.5, boxShadow: '0 4px 20px rgba(0,0,0,.25)' }}>
+            <div style={{ background: '#FEFDFB', borderRadius: '8px', padding: '18px', color: '#1A1A1A', fontFamily: "Georgia,serif", fontSize: '11px', lineHeight: 1.5, boxShadow: '0 2px 12px rgba(0,0,0,.1)', border: '1px solid #E5E2DB' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '10px', borderBottom: '2px solid #D97706', marginBottom: '14px' }}>
                 <div>
                   <div style={{ fontSize: '17px', fontWeight: 700, color: '#D97706', fontFamily: 'var(--fn)', letterSpacing: '.05em' }}>FACTUUR</div>
@@ -482,11 +483,18 @@ export default function App() {
             </div>
 
             {/* Action buttons */}
-            <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
-              <button onClick={exportPDF} style={{ ...btn1, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                <DownIcon /> Exporteer PDF
+            <div style={{ display: 'flex', gap: '8px', marginTop: '14px', flexWrap: 'wrap' }}>
+              <button onClick={exportPDF} style={{ ...btn1, flex: 1, minWidth: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                <DownIcon /> PDF
               </button>
-              <button onClick={saveInvoice} style={{ ...btn2, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderColor: 'var(--ok)', color: 'var(--ok)' }}>
+              <button onClick={() => {
+                const xml = generateInvoiceXML({ oa, og, project, lines, totals, btwVerlegd, useGrek, gPerc });
+                downloadXML(xml, `factuur-${project.factuurnummer || 'draft'}.xml`);
+                flash('DICO/NLCIUS XML gedownload');
+              }} style={{ ...btn2, flex: 1, minWidth: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderColor: 'var(--ac)', color: 'var(--ac)' }}>
+                <FileIcon /> XML
+              </button>
+              <button onClick={saveInvoice} style={{ ...btn2, flex: 1, minWidth: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderColor: 'var(--ok)', color: 'var(--ok)' }}>
                 <SaveIcon /> Opslaan
               </button>
             </div>
