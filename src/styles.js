@@ -21,7 +21,7 @@ export const lbl = {
 };
 
 export const btn1 = {
-  background: 'var(--ac)', color: 'var(--bg)', border: 'none', borderRadius: '6px',
+  background: 'var(--ac)', color: '#FFFFFF', border: 'none', borderRadius: '6px',
   padding: '11px 20px', fontSize: '11px', fontWeight: '700', fontFamily: 'var(--fn)',
   letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer',
 };
