@@ -23,7 +23,9 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173).
+This starts the app with **Cloudflare Pages Functions** (VIES, KvK, Peppol proxies) via `wrangler pages dev`. If you only need the frontend without API proxies, use `npm run dev:vite` instead.
+
+Open [http://localhost:8788](http://localhost:8788) (wrangler) or [http://localhost:5173](http://localhost:5173) (vite-only).
 
 ## Deploy to Cloudflare Pages
 
