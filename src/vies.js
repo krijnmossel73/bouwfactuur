@@ -4,8 +4,9 @@
  * Uses the official European Commission VIES REST API (free, no key needed).
  * Calls go through /api/vies proxy to avoid CORS issues in the browser.
  *
- * In local dev (npm run dev), falls back to format-only validation
- * since the proxy function won't be available.
+ * In local dev, use `npm run dev` (wrangler pages dev) to serve the
+ * proxy function. If using `npm run dev:vite` (Vite only), falls back
+ * to format-only validation.
  */
 
 // Dutch BTW number format: NL + 9 digits + B + 2 digits = NL123456789B01
@@ -51,12 +52,17 @@ export function validateFormat(btwString) {
     return { valid: false, message: `Ongeldig ${parsed.country} BTW-nummer formaat.` };
   }
 
-  // If no specific pattern, accept any alphanumeric after country code
   if (!pattern && parsed.number.length < 4) {
     return { valid: false, message: 'BTW-nummer te kort.' };
   }
 
   return { valid: true, message: 'Formaat correct.' };
+}
+
+/** Check if a response is JSON (not HTML from Vite SPA fallback) */
+function isJsonResponse(res) {
+  const ct = res.headers.get('content-type') || '';
+  return ct.includes('application/json');
 }
 
 /**
@@ -69,31 +75,33 @@ export async function validateVIES(btwString) {
     return { valid: false, error: 'Ongeldig formaat.' };
   }
 
-  // Format check first
   const fmt = validateFormat(btwString);
   if (!fmt.valid) {
     return { valid: false, error: fmt.message };
   }
 
   try {
-    // Call our proxy (Cloudflare Pages Function)
     const res = await fetch(`/api/vies?country=${parsed.country}&number=${parsed.number}`, {
       signal: AbortSignal.timeout(10000),
     });
 
+    // Detect Vite SPA fallback (returns HTML instead of JSON)
+    if (!isJsonResponse(res)) {
+      return {
+        valid: true, formatOnly: true,
+        message: 'Formaat correct. Start met `npm run dev` (wrangler) voor VIES validatie.',
+      };
+    }
+
     if (!res.ok) {
-      // If proxy isn't available (local dev), fall back to format-only
       if (res.status === 404) {
         return {
-          valid: true,
-          name: null,
-          address: null,
-          error: null,
-          formatOnly: true,
-          message: 'Formaat correct (VIES niet beschikbaar in dev-modus).',
+          valid: true, formatOnly: true,
+          message: 'Formaat correct (VIES proxy niet beschikbaar).',
         };
       }
-      return { valid: false, error: `VIES fout (HTTP ${res.status}).` };
+      const body = await res.json().catch(() => ({}));
+      return { valid: false, error: body.error || `VIES fout (HTTP ${res.status}).` };
     }
 
     const data = await res.json();
@@ -110,16 +118,13 @@ export async function validateVIES(btwString) {
       error: data.valid ? null : 'BTW-nummer niet geldig in VIES.',
     };
   } catch (err) {
-    // Network error or timeout — fall back to format-only
     if (err.name === 'TimeoutError' || err.name === 'AbortError') {
       return { valid: null, error: 'VIES timeout — probeer later opnieuw.' };
     }
 
-    // If fetch fails entirely (e.g. dev mode, no proxy), format-only
     return {
-      valid: true,
-      formatOnly: true,
-      message: 'Formaat correct (VIES niet bereikbaar).',
+      valid: true, formatOnly: true,
+      message: 'Formaat correct (VIES niet bereikbaar — gebruik `npm run dev` voor volledige validatie).',
     };
   }
 }
