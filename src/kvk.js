@@ -38,8 +38,13 @@ export async function searchKvK({ kvkNummer, naam }) {
       signal: AbortSignal.timeout(10000),
     });
 
+    // Detect Vite SPA fallback (returns HTML instead of JSON)
+    const ct = res.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) {
+      return { results: [], error: null, devMode: true, message: 'KvK API niet beschikbaar. Start met `npm run dev` (wrangler).' };
+    }
+
     if (res.status === 404) {
-      // Proxy not available (local dev)
       return { results: [], error: null, devMode: true, message: 'KvK API niet beschikbaar in dev-modus.' };
     }
 
