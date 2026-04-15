@@ -5,7 +5,8 @@
   "description": "Compliant Dutch construction invoicing — BTW verlegd, G-rekening, Wka",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "npx wrangler pages dev -- npx vite",
+    "dev:vite": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "deploy": "npm run build && npx wrangler pages deploy dist --project-name bouwfactuur"
