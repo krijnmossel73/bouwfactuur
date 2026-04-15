@@ -10,6 +10,7 @@ import ViesButton from './ViesButton.jsx';
 import KvkButton from './KvkButton.jsx';
 import { generateInvoiceXML, downloadXML } from './invoiceXml.js';
 import PeppolPanel from './PeppolPanel.jsx';
+import { features } from './config.js';
 
 const STEPS = ['Profiel', 'Klant', 'Regels', 'Factuur'];
 
@@ -513,6 +514,7 @@ export default function App() {
               <button onClick={exportPDF} style={{ ...btn1, flex: 1, minWidth: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                 <DownIcon /> PDF
               </button>
+              {features.xmlExport && (
               <button onClick={() => {
                 const xml = generateInvoiceXML({ oa, og, project, lines, totals, btwVerlegd, useGrek, gPerc });
                 downloadXML(xml, `factuur-${project.factuurnummer || 'draft'}.xml`);
@@ -520,18 +522,21 @@ export default function App() {
               }} style={{ ...btn2, flex: 1, minWidth: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderColor: 'var(--ac)', color: 'var(--ac)' }}>
                 <FileIcon /> XML
               </button>
+              )}
               <button onClick={saveInvoice} style={{ ...btn2, flex: 1, minWidth: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderColor: 'var(--ok)', color: 'var(--ok)' }}>
                 <SaveIcon /> Opslaan
               </button>
             </div>
 
             {/* Peppol e-Invoicing */}
-            <PeppolPanel
-              recipientKvk={og.kvk}
-              recipientName={og.naam}
-              senderKvk={oa.kvk}
-              onGenerateXml={() => generateInvoiceXML({ oa, og, project, lines, totals, btwVerlegd, useGrek, gPerc })}
-            />
+            {features.peppol && (
+              <PeppolPanel
+                recipientKvk={og.kvk}
+                recipientName={og.naam}
+                senderKvk={oa.kvk}
+                onGenerateXml={() => generateInvoiceXML({ oa, og, project, lines, totals, btwVerlegd, useGrek, gPerc })}
+              />
+            )}
           </div>
         )}
 
