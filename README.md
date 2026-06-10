@@ -13,7 +13,7 @@ Compliant invoicing tool for Dutch construction companies. Handles BTW verlegd (
 - **DICO/NLCIUS XML export** — generate UBL 2.1 NLCIUS-compliant invoice XML with construction-specific fields (G-rekening, btw verlegd, Wka), compatible with Peppol and DICO service providers
 - **Peppol e-invoicing** — look up recipients in the Peppol Directory and send invoices directly via a Peppol Access Point (Storecove, eConnect, or custom provider)
 - **Authentication** — Cloudflare Access integration with email OTP, per-user data isolation, and zero-password login
-- **Persistent storage** — company profiles, clients, and invoice history saved per user across sessions
+- **Persistent storage** — company profiles, clients, and invoice history saved per user. With D1 enabled, data is stored in the cloud and follows your login across devices; without it, the app falls back to per-user localStorage.
 - **Auto-numbering** — sequential invoice numbers that persist across sessions
 - **Compliance check** — pre-export checklist against Belastingdienst factuurvereisten and Wka requirements (incl. IBAN mod-97 validation and mandatory client BTW-nr when verlegd)
 - **BTW tarieven** — 21% / 9% (renovation labor, homes >2 yrs) / 0% selectable when verleggingsregeling does not apply
@@ -30,6 +30,35 @@ npm run dev
 This starts the app with **Cloudflare Pages Functions** (VIES, KvK, Peppol proxies) via `wrangler pages dev`. If you only need the frontend without API proxies, use `npm run dev:vite` instead.
 
 Open [http://localhost:8788](http://localhost:8788) (wrangler) or [http://localhost:5173](http://localhost:5173) (vite-only).
+
+## Enable D1 cloud storage
+
+By default, data lives in localStorage. To store it in Cloudflare D1 (synced across devices, tied to your Cloudflare Access login):
+
+```bash
+# 1. Create the database (once)
+npx wrangler d1 create bouwfactuur
+
+# 2. Copy the printed database_id into wrangler.toml
+#    (uncomment the [[d1_databases]] block)
+
+# 3. Apply the schema to the production database
+npx wrangler d1 execute bouwfactuur --remote --file=./schema.sql
+
+# 4. For local dev with wrangler pages dev:
+npx wrangler d1 execute bouwfactuur --local --file=./schema.sql
+
+# 5. Commit & push — deployment picks up the binding
+```
+
+How it behaves:
+
+- **Authenticated + D1 bound** → reads/writes go to D1 via `/api/storage`. A green cloud icon (☁) appears next to your email in the header.
+- **First load with an empty D1 store** → existing localStorage data is migrated up automatically (one-time), with a confirmation toast.
+- **No D1 binding / not authenticated / API error** → transparent fallback to localStorage, identical to pre-D1 behaviour.
+- Every cloud write is mirrored to localStorage as an offline backup; on load, cloud data wins whenever it exists.
+
+The storage API (`/api/storage`, `/api/storage/:key`) requires a Cloudflare Access JWT — unauthenticated requests get a 401, and each user only ever sees rows keyed to their own identity.
 
 ## Deploy to Cloudflare Pages
 

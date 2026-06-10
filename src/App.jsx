@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { storageGet, storageSet, setStorageUser, KEYS } from './storage.js';
+import { storageSet, setStorageUser, loadAll, KEYS } from './storage.js';
 import { TRADE_PERCENTAGES, BLANK_OA, BLANK_OG, BLANK_PROJECT, BLANK_LINE } from './constants.js';
 import { fmt, fmtDate, calcVerval, makeInvoiceNumber, calcTotals } from './utils.js';
 import { PlusIcon, TrashIcon, FileIcon, EyeIcon, BldgIcon, SaveIcon, DownIcon, ListIcon, LogoIcon } from './Icons.jsx';
@@ -38,6 +38,7 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [profLoaded, setProfLoaded] = useState(false);
   const [user, setUser] = useState(null); // { email, id } or null
+  const [storageMode, setStorageMode] = useState('local'); // 'local' | 'remote'
 
   const gPerc = customGPerc !== null ? customGPerc : (TRADE_PERCENTAGES[oa.trade] || 40);
   const totals = calcTotals(lines, btwVerlegd, useGrek, gPerc, btwTarief);
@@ -46,15 +47,17 @@ export default function App() {
 
   const flash = (m) => { setToast(m); setTimeout(() => setToast(null), 2500); };
 
-  // ── Load: check auth first, then load user-scoped data ──
+  // ── Load: check auth first, then load data (D1 when available, else local) ──
   useEffect(() => {
     (async () => {
       // 1. Check Cloudflare Access auth
+      let authenticated = false;
       try {
         const authRes = await fetch('/api/auth/me');
         if (authRes.ok) {
           const authData = await authRes.json();
           if (authData.authenticated) {
+            authenticated = true;
             setUser({ email: authData.email, id: authData.id });
             setStorageUser(authData.email);
           }
@@ -63,18 +66,16 @@ export default function App() {
         // Auth endpoint not available (local dev) — continue without auth
       }
 
-      // 2. Load user-scoped persisted data
-      const [prof, cls, invs, nn] = await Promise.all([
-        storageGet(KEYS.profile, null),
-        storageGet(KEYS.clients, []),
-        storageGet(KEYS.invoices, []),
-        storageGet(KEYS.nextNum, 1),
-      ]);
-      if (prof) { setOa(prof); setProfLoaded(true); }
-      setSavedClients(cls);
-      setInvoices(invs);
-      setNextNum(nn);
+      // 2. Load data — remote (D1) when authenticated + binding present,
+      //    with automatic one-time migration of existing local data.
+      const res = await loadAll(authenticated);
+      if (res.profile) { setOa(res.profile); setProfLoaded(true); }
+      setSavedClients(res.clients);
+      setInvoices(res.invoices);
+      setNextNum(res.nextNum);
+      setStorageMode(res.mode);
       setLoading(false);
+      if (res.migrated) flash('Gegevens gemigreerd naar cloudopslag');
     })();
   }, []);
 
@@ -253,6 +254,7 @@ export default function App() {
         onToggleStatus={toggleInvoiceStatus}
         onExportBackup={exportBackup}
         onImportBackup={importBackup}
+        storageMode={storageMode}
       />
     );
   }
@@ -300,6 +302,12 @@ export default function App() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: 'var(--abg)', borderRadius: '4px', border: '1px solid var(--bd)' }}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--tm)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
                 <span style={{ fontSize: '10px', color: 'var(--tm)', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</span>
+                <span
+                  title={storageMode === 'remote' ? 'Cloudopslag (D1) — gegevens beschikbaar op al uw apparaten' : 'Lokale opslag — gegevens alleen in deze browser'}
+                  style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '.05em', color: storageMode === 'remote' ? 'var(--ok)' : 'var(--tm)' }}
+                >
+                  {storageMode === 'remote' ? '☁' : '⌂'}
+                </span>
                 <a href={`https://${window.location.host}/cdn-cgi/access/logout`} style={{ fontSize: '9px', color: 'var(--dn)', textDecoration: 'none', marginLeft: '2px' }} title="Uitloggen">✕</a>
               </div>
             )}
