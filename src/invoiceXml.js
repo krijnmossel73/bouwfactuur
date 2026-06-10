@@ -44,7 +44,7 @@ function amount(n) {
  * @param {number} params.gPerc - G-rekening percentage
  * @returns {string} XML string
  */
-export function generateInvoiceXML({ oa, og, project, lines, totals, btwVerlegd, useGrek, gPerc }) {
+export function generateInvoiceXML({ oa, og, project, lines, totals, btwVerlegd, btwTarief = 21, useGrek, gPerc }) {
   const { sub, btwB, totIncl, gSplit, normB, arbeid } = totals;
   const issueDate = project.factuurdatum || new Date().toISOString().split('T')[0];
 
@@ -57,7 +57,7 @@ export function generateInvoiceXML({ oa, og, project, lines, totals, btwVerlegd,
 
   // Tax category code: AE = VAT Reverse Charge, S = Standard rate
   const taxCategory = btwVerlegd ? 'AE' : 'S';
-  const taxRate = btwVerlegd ? '0.00' : '21.00';
+  const taxRate = btwVerlegd ? '0.00' : Number(btwTarief).toFixed(2);
   const taxScheme = 'VAT';
 
   // Build line items XML

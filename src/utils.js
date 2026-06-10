@@ -24,8 +24,20 @@ export function makeInvoiceNumber(nextNum) {
   return `${yr}-${String(nextNum).padStart(4, '0')}`;
 }
 
-/** Calculate totals from line items */
-export function calcTotals(lines, btwVerlegd, useGrek, gPerc) {
+/** Round to 2 decimals (cents) — avoids floating-point artifacts in totals/XML */
+export function round2(n) {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+/**
+ * Calculate totals from line items.
+ * @param {Array} lines
+ * @param {boolean} btwVerlegd — VAT reverse charge
+ * @param {boolean} useGrek — G-rekening split
+ * @param {number} gPerc — G-rekening percentage over labor
+ * @param {number} btwTarief — VAT rate in % when not verlegd (21, 9 or 0)
+ */
+export function calcTotals(lines, btwVerlegd, useGrek, gPerc, btwTarief = 21) {
   const base = lines.reduce(
     (a, l) => {
       const b = parseFloat(l.bedrag) || 0;
@@ -37,10 +49,14 @@ export function calcTotals(lines, btwVerlegd, useGrek, gPerc) {
     { arbeid: 0, materiaal: 0, sub: 0 }
   );
 
-  const btwB = btwVerlegd ? 0 : base.sub * 0.21;
-  const totIncl = base.sub + btwB;
-  const gSplit = useGrek ? (base.arbeid * gPerc) / 100 : 0;
-  const normB = totIncl - gSplit;
+  base.arbeid = round2(base.arbeid);
+  base.materiaal = round2(base.materiaal);
+  base.sub = round2(base.sub);
+
+  const btwB = btwVerlegd ? 0 : round2(base.sub * (btwTarief / 100));
+  const totIncl = round2(base.sub + btwB);
+  const gSplit = useGrek ? round2((base.arbeid * gPerc) / 100) : 0;
+  const normB = round2(totIncl - gSplit);
 
   return { ...base, btwB, totIncl, gSplit, normB };
 }

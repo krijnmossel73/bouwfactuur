@@ -15,6 +15,10 @@ Compliant invoicing tool for Dutch construction companies. Handles BTW verlegd (
 - **Authentication** — Cloudflare Access integration with email OTP, per-user data isolation, and zero-password login
 - **Persistent storage** — company profiles, clients, and invoice history saved per user across sessions
 - **Auto-numbering** — sequential invoice numbers that persist across sessions
+- **Compliance check** — pre-export checklist against Belastingdienst factuurvereisten and Wka requirements (incl. IBAN mod-97 validation and mandatory client BTW-nr when verlegd)
+- **BTW tarieven** — 21% / 9% (renovation labor, homes >2 yrs) / 0% selectable when verleggingsregeling does not apply
+- **Invoice status** — open/betaald tracking per invoice with outstanding-amount summary in the history view
+- **Backup & restore** — export all data (profile, clients, invoices, numbering) to JSON and restore it, as protection against browser storage loss
 
 ## Quick Start
 

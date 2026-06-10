@@ -6,7 +6,7 @@ import { btn1, btn2 } from './styles.js';
  * Full-page print-ready invoice view.
  * Renders an A4-formatted invoice with all Dutch compliance elements.
  */
-export default function InvoicePDF({ oa, og, project, lines, totals, btwVerlegd, useGrek, gPerc, onBack }) {
+export default function InvoicePDF({ oa, og, project, lines, totals, btwVerlegd, btwTarief = 21, useGrek, gPerc, onBack }) {
   const { sub, btwB, totIncl, gSplit, normB, arbeid } = totals;
   const verval = calcVerval(project.factuurdatum, project.betaaltermijn);
   const FN = "var(--fn)";
@@ -98,7 +98,7 @@ export default function InvoicePDF({ oa, og, project, lines, totals, btwVerlegd,
             </tr>
             <tr>
               <td colSpan="4" style={{ textAlign: 'right', fontSize: '10px', color: btwVerlegd ? '#D97706' : '#1A1A1A' }}>
-                BTW 21% {btwVerlegd && <strong>— VERLEGD</strong>}
+                BTW {btwVerlegd ? 21 : btwTarief}% {btwVerlegd && <strong>— VERLEGD</strong>}
               </td>
               <td className="r" style={{ color: btwVerlegd ? '#D97706' : '#1A1A1A' }}>
                 {btwVerlegd ? '€ 0,00' : fmt(btwB)}

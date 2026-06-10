@@ -11,6 +11,7 @@ import KvkButton from './KvkButton.jsx';
 import { generateInvoiceXML, downloadXML } from './invoiceXml.js';
 import PeppolPanel from './PeppolPanel.jsx';
 import { features } from './config.js';
+import { checkInvoice } from './validation.js';
 
 const STEPS = ['Profiel', 'Klant', 'Regels', 'Factuur'];
 
@@ -23,6 +24,7 @@ export default function App() {
   const [project, setProject] = useState({ ...BLANK_PROJECT });
   const [lines, setLines] = useState([{ ...BLANK_LINE }]);
   const [btwVerlegd, setBtwVerlegd] = useState(true);
+  const [btwTarief, setBtwTarief] = useState(21);
   const [useGrek, setUseGrek] = useState(true);
   const [customGPerc, setCustomGPerc] = useState(null);
 
@@ -38,8 +40,9 @@ export default function App() {
   const [user, setUser] = useState(null); // { email, id } or null
 
   const gPerc = customGPerc !== null ? customGPerc : (TRADE_PERCENTAGES[oa.trade] || 40);
-  const totals = calcTotals(lines, btwVerlegd, useGrek, gPerc);
+  const totals = calcTotals(lines, btwVerlegd, useGrek, gPerc, btwTarief);
   const verval = calcVerval(project.factuurdatum, project.betaaltermijn);
+  const compliance = checkInvoice({ oa, og, project, lines, btwVerlegd, useGrek });
 
   const flash = (m) => { setToast(m); setTimeout(() => setToast(null), 2500); };
 
@@ -108,8 +111,9 @@ export default function App() {
       id: Date.now().toString(),
       date: project.factuurdatum,
       nummer: project.factuurnummer,
+      status: 'open',
       oa: { ...oa }, og: { ...og }, project: { ...project },
-      lines: [...lines], btwVerlegd, useGrek, gPerc,
+      lines: [...lines], btwVerlegd, btwTarief, useGrek, gPerc,
       totals: { ...totals },
     };
     const next = [inv, ...invoices];
@@ -123,7 +127,8 @@ export default function App() {
 
   const loadInvoice = (inv) => {
     setOa(inv.oa); setOg(inv.og); setProject(inv.project); setLines(inv.lines);
-    setBtwVerlegd(inv.btwVerlegd); setUseGrek(inv.useGrek); setCustomGPerc(inv.gPerc);
+    setBtwVerlegd(inv.btwVerlegd); setBtwTarief(inv.btwTarief ?? 21);
+    setUseGrek(inv.useGrek); setCustomGPerc(inv.gPerc);
     setView('editor'); setStep(3);
     flash(`Factuur ${inv.nummer} geladen`);
   };
@@ -135,17 +140,61 @@ export default function App() {
       factuurnummer: makeInvoiceNumber(nextNum),
       factuurdatum: new Date().toISOString().split('T')[0],
     });
-    setLines(inv.lines); setBtwVerlegd(inv.btwVerlegd);
+    setLines(inv.lines); setBtwVerlegd(inv.btwVerlegd); setBtwTarief(inv.btwTarief ?? 21);
     setUseGrek(inv.useGrek); setCustomGPerc(inv.gPerc);
     setView('editor'); setStep(2);
     flash('Gedupliceerd — pas aan');
   };
 
   const delInvoice = async (id) => {
+    const inv = invoices.find((i) => i.id === id);
+    if (!window.confirm(`Factuur ${inv?.nummer || ''} definitief verwijderen?`)) return;
     const next = invoices.filter((i) => i.id !== id);
     setInvoices(next);
     await storageSet(KEYS.invoices, next);
     flash('Verwijderd');
+  };
+
+  const toggleInvoiceStatus = async (id) => {
+    const next = invoices.map((i) =>
+      i.id === id ? { ...i, status: (i.status ?? 'open') === 'open' ? 'betaald' : 'open' } : i
+    );
+    setInvoices(next);
+    await storageSet(KEYS.invoices, next);
+  };
+
+  // ── Backup / restore (localStorage is fragile — give users an escape hatch) ──
+  const exportBackup = () => {
+    const data = {
+      app: 'bouwfactuur', version: 1, exportedAt: new Date().toISOString(),
+      profile: profLoaded ? oa : null, clients: savedClients, invoices, nextNum,
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bouwfactuur-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    flash('Backup gedownload');
+  };
+
+  const importBackup = async (file) => {
+    try {
+      const data = JSON.parse(await file.text());
+      if (data.app !== 'bouwfactuur') throw new Error('not a bouwfactuur backup');
+      if (!window.confirm('Backup terugzetten? Huidige gegevens worden overschreven.')) return;
+      if (data.profile) { setOa(data.profile); setProfLoaded(true); await storageSet(KEYS.profile, data.profile); }
+      const cls = Array.isArray(data.clients) ? data.clients : [];
+      const invs = Array.isArray(data.invoices) ? data.invoices : [];
+      const nn = Number.isInteger(data.nextNum) ? data.nextNum : 1;
+      setSavedClients(cls); await storageSet(KEYS.clients, cls);
+      setInvoices(invs); await storageSet(KEYS.invoices, invs);
+      setNextNum(nn); await storageSet(KEYS.nextNum, nn);
+      flash('Backup teruggezet');
+    } catch {
+      flash('Ongeldig backupbestand');
+    }
   };
 
   const newInvoice = () => {
@@ -156,7 +205,7 @@ export default function App() {
       factuurdatum: new Date().toISOString().split('T')[0],
     });
     setLines([{ ...BLANK_LINE }]);
-    setBtwVerlegd(true); setUseGrek(true); setCustomGPerc(null);
+    setBtwVerlegd(true); setBtwTarief(21); setUseGrek(true); setCustomGPerc(null);
     setStep(profLoaded ? 1 : 0);
     setView('editor');
   };
@@ -183,7 +232,7 @@ export default function App() {
     return (
       <InvoicePDF
         oa={oa} og={og} project={project} lines={lines}
-        totals={totals} btwVerlegd={btwVerlegd} useGrek={useGrek}
+        totals={totals} btwVerlegd={btwVerlegd} btwTarief={btwTarief} useGrek={useGrek}
         gPerc={gPerc} onBack={() => setView('editor')}
       />
     );
@@ -201,6 +250,9 @@ export default function App() {
         onLoad={loadInvoice}
         onDuplicate={dupInvoice}
         onDelete={delInvoice}
+        onToggleStatus={toggleInvoiceStatus}
+        onExportBackup={exportBackup}
+        onImportBackup={importBackup}
       />
     );
   }
@@ -362,6 +414,16 @@ export default function App() {
                 <span style={{ fontSize: '12px', fontWeight: 500 }}>BTW verlegd (verleggingsregeling bouw)</span>
               </label>
               {btwVerlegd && <div style={nfo}>BTW verlegd naar opdrachtgever conform art. 12 lid 5 Wet OB 1968.</div>}
+              {!btwVerlegd && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                  <span style={{ ...lbl, whiteSpace: 'nowrap', marginBottom: 0 }}>BTW-tarief</span>
+                  <select style={{ ...sel, width: '180px' }} value={btwTarief} onChange={(e) => setBtwTarief(parseInt(e.target.value))}>
+                    <option value={21}>21% — algemeen</option>
+                    <option value={9}>9% — renovatie woning &gt; 2 jr (arbeid)</option>
+                    <option value={0}>0% — vrijgesteld / export</option>
+                  </select>
+                </div>
+              )}
               <label style={{ ...chk, marginTop: '10px' }} onClick={() => setUseGrek(!useGrek)}>
                 <input type="checkbox" checked={useGrek} readOnly />
                 <span style={{ fontSize: '12px', fontWeight: 500 }}>G-rekening splitsing</span>
@@ -386,7 +448,9 @@ export default function App() {
               <div><span style={lbl}>Factuurnummer</span><input style={inp} value={project.factuurnummer} onChange={(e) => setProject({ ...project, factuurnummer: e.target.value })} /></div>
               <div><span style={lbl}>Factuurdatum</span><input type="date" style={inp} value={project.factuurdatum} onChange={(e) => setProject({ ...project, factuurdatum: e.target.value })} /></div>
               <div><span style={lbl}>Contractnummer</span><input style={inp} value={project.contractNummer} onChange={(e) => setProject({ ...project, contractNummer: e.target.value })} placeholder="CTR-2026-001" /></div>
-              <div><span style={lbl}>Betaaltermijn (dgn)</span><input type="number" style={inp} value={project.betaaltermijn} onChange={(e) => setProject({ ...project, betaaltermijn: parseInt(e.target.value) || 30 })} /></div>
+              <div><span style={lbl}>Betaaltermijn (dgn)</span><input type="number" style={inp} value={project.betaaltermijn} onChange={(e) => setProject({ ...project, betaaltermijn: parseInt(e.target.value) || 30 })} />
+                {verval && <span style={{ fontSize: '10px', color: 'var(--tm)', marginTop: '3px', display: 'block' }}>Vervaldatum: {fmtDate(verval)}</span>}
+              </div>
               <div style={full}><span style={lbl}>Projectnaam</span><input style={inp} value={project.projectNaam} onChange={(e) => setProject({ ...project, projectNaam: e.target.value })} placeholder="Nieuwbouw appartementen Zuidas Blok C" /></div>
             </div>
 
@@ -421,7 +485,7 @@ export default function App() {
                 <span style={{ color: 'var(--tm)' }}>Arbeid:</span><span style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(totals.arbeid)}</span>
                 <span style={{ color: 'var(--tm)' }}>Materiaal:</span><span style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(totals.materiaal)}</span>
                 <span style={{ color: 'var(--tm)' }}>Subtotaal excl. BTW:</span><span style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(totals.sub)}</span>
-                <span style={{ color: 'var(--tm)' }}>BTW {btwVerlegd ? '(verlegd)' : '21%'}:</span>
+                <span style={{ color: 'var(--tm)' }}>BTW {btwVerlegd ? '(verlegd)' : `${btwTarief}%`}:</span>
                 <span style={{ textAlign: 'right', fontWeight: 600, color: btwVerlegd ? 'var(--ac)' : 'var(--tx)' }}>
                   {btwVerlegd ? '€ 0,00 (verlegd)' : fmt(totals.btwB)}
                 </span>
@@ -444,6 +508,36 @@ export default function App() {
         {step === 3 && (
           <div>
             <div style={sec}><EyeIcon /> Factuurvoorbeeld</div>
+
+            {/* Compliance check */}
+            {(compliance.errors.length > 0 || compliance.warnings.length > 0) ? (
+              <div style={{ marginBottom: '14px' }}>
+                {compliance.errors.length > 0 && (
+                  <div style={{ padding: '10px 14px', background: 'rgba(220,38,38,.08)', border: '1px solid rgba(220,38,38,.3)', borderRadius: '6px', marginBottom: '8px' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--dn)', marginBottom: '5px' }}>
+                      Factuur niet compleet ({compliance.errors.length})
+                    </div>
+                    {compliance.errors.map((e, i) => (
+                      <div key={i} style={{ fontSize: '11px', color: 'var(--tx)', lineHeight: 1.7 }}>• {e}</div>
+                    ))}
+                  </div>
+                )}
+                {compliance.warnings.length > 0 && (
+                  <div style={{ padding: '10px 14px', background: 'var(--abg)', border: '1px solid rgba(245,158,11,.3)', borderRadius: '6px' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ac)', marginBottom: '5px' }}>
+                      Aanbevolen ({compliance.warnings.length})
+                    </div>
+                    {compliance.warnings.map((w, i) => (
+                      <div key={i} style={{ fontSize: '11px', color: 'var(--tm)', lineHeight: 1.7 }}>• {w}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ padding: '10px 14px', background: 'rgba(22,163,74,.08)', border: '1px solid rgba(22,163,74,.3)', borderRadius: '6px', marginBottom: '14px', fontSize: '11px', color: 'var(--ok)', fontWeight: 600 }}>
+                ✓ Voldoet aan factuurvereisten Belastingdienst{useGrek ? ' en Wka' : ''}
+              </div>
+            )}
 
             {/* Compact in-app preview */}
             <div style={{ background: '#FEFDFB', borderRadius: '8px', padding: '18px', color: '#1A1A1A', fontFamily: "Georgia,serif", fontSize: '11px', lineHeight: 1.5, boxShadow: '0 2px 12px rgba(0,0,0,.1)', border: '1px solid #E5E2DB' }}>
@@ -486,7 +580,7 @@ export default function App() {
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px', fontSize: '10px' }}>
                 <div style={{ width: '180px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Subtotaal:</span><span style={{ fontFamily: 'var(--fn)' }}>{fmt(totals.sub)}</span></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: btwVerlegd ? '#D97706' : '#1A1A1A' }}><span>BTW:{btwVerlegd && ' verlegd'}</span><span style={{ fontFamily: 'var(--fn)' }}>{btwVerlegd ? '€ 0,00' : fmt(totals.btwB)}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: btwVerlegd ? '#D97706' : '#1A1A1A' }}><span>BTW{btwVerlegd ? ' verlegd' : ` ${btwTarief}%`}:</span><span style={{ fontFamily: 'var(--fn)' }}>{btwVerlegd ? '€ 0,00' : fmt(totals.btwB)}</span></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '13px', marginTop: '3px', paddingTop: '3px', borderTop: '2px solid #D97706' }}>
                     <span>Totaal:</span><span style={{ fontFamily: 'var(--fn)' }}>{fmt(totals.totIncl)}</span>
                   </div>
@@ -516,7 +610,7 @@ export default function App() {
               </button>
               {features.xmlExport && (
               <button onClick={() => {
-                const xml = generateInvoiceXML({ oa, og, project, lines, totals, btwVerlegd, useGrek, gPerc });
+                const xml = generateInvoiceXML({ oa, og, project, lines, totals, btwVerlegd, btwTarief, useGrek, gPerc });
                 downloadXML(xml, `factuur-${project.factuurnummer || 'draft'}.xml`);
                 flash('DICO/NLCIUS XML gedownload');
               }} style={{ ...btn2, flex: 1, minWidth: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderColor: 'var(--ac)', color: 'var(--ac)' }}>
@@ -534,7 +628,7 @@ export default function App() {
                 recipientKvk={og.kvk}
                 recipientName={og.naam}
                 senderKvk={oa.kvk}
-                onGenerateXml={() => generateInvoiceXML({ oa, og, project, lines, totals, btwVerlegd, useGrek, gPerc })}
+                onGenerateXml={() => generateInvoiceXML({ oa, og, project, lines, totals, btwVerlegd, btwTarief, useGrek, gPerc })}
               />
             )}
           </div>
