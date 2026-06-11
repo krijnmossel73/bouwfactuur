@@ -1,43 +1,20 @@
 /**
- * Storage layer for BouwFactuur.
+ * Storage layer for BouwFactuur — cloud-only (Cloudflare D1 via /api/storage).
  *
- * Two backends:
- *  - REMOTE (Cloudflare D1 via /api/storage) — used when the user is
- *    logged in via Supabase Auth AND the D1 binding exists.
- *    Data follows the user across browsers and devices.
- *  - LOCAL (localStorage, per-user key scoping) — used in local dev,
- *    when not authenticated, or when the D1 binding is absent. Identical
- *    to the pre-D1 behaviour, so the app degrades gracefully.
+ * Requires an authenticated Supabase session; every request carries the
+ * session JWT as a Bearer token. There is NO localStorage backend: data
+ * lives exclusively in D1, tied to the user's account.
  *
- * In remote mode every write is ALSO mirrored to localStorage as an
- * offline backup; on load, remote data wins whenever it exists.
+ * The only remaining localStorage interaction is a one-time, read-only
+ * MIGRATION on first login: data created by earlier versions of the app
+ * (which stored everything in this browser) is pushed up to D1 once and
+ * then removed from localStorage.
  *
- * Migration: on the first authenticated load against an empty D1 store,
- * any existing localStorage data is pushed up automatically (one-time).
+ * All functions throw on failure so the UI can inform the user — with no
+ * local fallback, a silent write failure would mean data loss.
  */
 
-let userScope = '';
-let mode = 'local'; // 'local' | 'remote'
 let tokenProvider = null; // async () => access token string | null
-
-/**
- * Register a function that returns the current auth access token.
- * Called before every remote request so refreshed tokens are picked up.
- */
-export function setAuthTokenProvider(fn) {
-  tokenProvider = fn;
-}
-
-async function authHeaders() {
-  const h = { 'Content-Type': 'application/json' };
-  if (tokenProvider) {
-    try {
-      const token = await tokenProvider();
-      if (token) h['Authorization'] = `Bearer ${token}`;
-    } catch { /* request proceeds unauthenticated → 401 → local fallback */ }
-  }
-  return h;
-}
 
 /** Logical storage keys — must match the server-side allowlist. */
 export const KEYS = {
@@ -47,73 +24,28 @@ export const KEYS = {
   nextNum: 'nextnum',
 };
 
-export function getStorageMode() {
-  return mode;
-}
-
 /**
- * Set the current user scope for localStorage key isolation.
- * @param {string} userId — Supabase user ID (empty string for anonymous)
+ * Register a function that returns the current Supabase access token.
+ * Called before every request so refreshed tokens are picked up.
  */
-export function setStorageUser(userId) {
-  userScope = userId ? simpleHash(userId) : '';
+export function setAuthTokenProvider(fn) {
+  tokenProvider = fn;
 }
 
-function simpleHash(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash |= 0; // Convert to 32-bit int
+async function authHeaders() {
+  const h = { 'Content-Type': 'application/json' };
+  if (tokenProvider) {
+    const token = await tokenProvider();
+    if (token) h['Authorization'] = `Bearer ${token}`;
   }
-  return Math.abs(hash).toString(36);
-}
-
-function prefix() {
-  return userScope ? `bf:${userScope}:` : 'bouwfactuur:';
-}
-
-function lsKey(key) {
-  // Produces the same physical keys as the pre-D1 version
-  // (e.g. "bf:<hash>:profile"), so existing data keeps working.
-  return prefix() + key;
-}
-
-// ── localStorage primitives ──
-
-function localGet(physicalKey, fallback) {
-  try {
-    const raw = localStorage.getItem(physicalKey);
-    if (raw === null) return fallback;
-    return JSON.parse(raw);
-  } catch {
-    return fallback;
-  }
-}
-
-function localSet(physicalKey, value) {
-  try {
-    localStorage.setItem(physicalKey, JSON.stringify(value));
-  } catch (err) {
-    console.error(`[BouwFactuur] Local storage write failed for ${physicalKey}:`, err);
-  }
-}
-
-function localDel(physicalKey) {
-  try {
-    localStorage.removeItem(physicalKey);
-  } catch { /* noop */ }
+  return h;
 }
 
 // ── Remote (D1) primitives ──
 
 async function remoteGetAll() {
   const res = await fetch('/api/storage', { headers: await authHeaders() });
-  if (!res.ok) {
-    const err = new Error(`remote storage unavailable (${res.status})`);
-    err.status = res.status;
-    throw err;
-  }
+  if (!res.ok) throw new Error(`storage read failed (${res.status})`);
   const body = await res.json();
   return body.data || {};
 }
@@ -124,63 +56,76 @@ async function remoteSet(key, value) {
     headers: await authHeaders(),
     body: JSON.stringify({ value }),
   });
-  if (!res.ok) throw new Error(`remote write failed (${res.status})`);
+  if (!res.ok) throw new Error(`storage write failed (${res.status})`);
 }
 
 async function remoteDel(key) {
   const res = await fetch(`/api/storage/${key}`, { method: 'DELETE', headers: await authHeaders() });
-  if (!res.ok) throw new Error(`remote delete failed (${res.status})`);
+  if (!res.ok) throw new Error(`storage delete failed (${res.status})`);
 }
 
-// ── Unified API ──
+// ── Legacy localStorage migration (read-once, then clean up) ──
+
+function simpleHash(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36);
+}
+
+function legacyRead(prefix) {
+  const get = (k, fb) => {
+    try {
+      const raw = localStorage.getItem(prefix + k);
+      return raw === null ? fb : JSON.parse(raw);
+    } catch { return fb; }
+  };
+  return {
+    prefix,
+    profile: get(KEYS.profile, null),
+    clients: get(KEYS.clients, []),
+    invoices: get(KEYS.invoices, []),
+    nextnum: get(KEYS.nextNum, null),
+  };
+}
+
+function legacyHasData(d) {
+  return d.profile != null || d.clients.length > 0 || d.invoices.length > 0 || d.nextnum != null;
+}
+
+function legacyCleanup(prefix) {
+  try {
+    for (const k of Object.values(KEYS)) localStorage.removeItem(prefix + k);
+  } catch { /* noop */ }
+}
 
 /**
- * Load all app data, deciding the backend and migrating if needed.
- * Call once on app start, AFTER setStorageUser().
- *
- * @param {boolean} authenticated — whether a Supabase user session is present
- * @returns {Promise<{profile, clients, invoices, nextNum, mode, migrated}>}
+ * Find legacy local data: the user-scoped prefix from the previous
+ * version first, then the anonymous prefix from before login existed.
  */
-export async function loadAll(authenticated) {
-  let local = {
-    profile: localGet(lsKey(KEYS.profile), null),
-    clients: localGet(lsKey(KEYS.clients), []),
-    invoices: localGet(lsKey(KEYS.invoices), []),
-    nextnum: localGet(lsKey(KEYS.nextNum), null),
-  };
-
-  // Legacy fallback: data created before login existed lives under the
-  // anonymous "bouwfactuur:" prefix. If the user-scoped store is empty,
-  // adopt the anonymous data so it migrates on first login.
-  const scopedEmpty =
-    local.profile == null && !local.clients.length && !local.invoices.length && local.nextnum == null;
-  if (userScope && scopedEmpty) {
-    const legacy = {
-      profile: localGet('bouwfactuur:' + KEYS.profile, null),
-      clients: localGet('bouwfactuur:' + KEYS.clients, []),
-      invoices: localGet('bouwfactuur:' + KEYS.invoices, []),
-      nextnum: localGet('bouwfactuur:' + KEYS.nextNum, null),
-    };
-    const legacyHasData =
-      legacy.profile != null || legacy.clients.length > 0 || legacy.invoices.length > 0 || legacy.nextnum != null;
-    if (legacyHasData) local = legacy;
+function findLegacyData(userId) {
+  const candidates = [`bf:${simpleHash(userId)}:`, 'bouwfactuur:'];
+  for (const prefix of candidates) {
+    const d = legacyRead(prefix);
+    if (legacyHasData(d)) return d;
   }
+  return null;
+}
 
-  if (!authenticated) {
-    mode = 'local';
-    return shape(local, 'local', false);
-  }
+// ── Public API ──
 
-  let remote;
-  try {
-    remote = await remoteGetAll();
-  } catch {
-    // 503 (no D1 binding), 401, network error → behave exactly as before D1
-    mode = 'local';
-    return shape(local, 'local', false);
-  }
-
-  mode = 'remote';
+/**
+ * Load all app data for the authenticated user. Performs the one-time
+ * legacy migration when D1 is still empty for this user.
+ *
+ * @param {string} userId — Supabase user UUID (for locating legacy data)
+ * @returns {Promise<{profile, clients, invoices, nextNum, migrated}>}
+ * @throws when cloud storage is unreachable
+ */
+export async function loadAll(userId) {
+  const remote = await remoteGetAll();
 
   const remoteEmpty =
     remote.profile == null &&
@@ -188,107 +133,51 @@ export async function loadAll(authenticated) {
     !(Array.isArray(remote.invoices) && remote.invoices.length) &&
     remote.nextnum == null;
 
-  const localHasData =
-    local.profile != null ||
-    (local.clients && local.clients.length > 0) ||
-    (local.invoices && local.invoices.length > 0) ||
-    local.nextnum != null;
-
-  // One-time migration: empty cloud + existing local data → push local up
-  if (remoteEmpty && localHasData) {
-    let migrated = false;
-    try {
-      const writes = [];
-      if (local.profile != null) writes.push(remoteSet(KEYS.profile, local.profile));
-      if (local.clients?.length) writes.push(remoteSet(KEYS.clients, local.clients));
-      if (local.invoices?.length) writes.push(remoteSet(KEYS.invoices, local.invoices));
-      writes.push(remoteSet(KEYS.nextNum, local.nextnum ?? 1));
-      await Promise.all(writes);
-      migrated = true;
-    } catch (err) {
-      console.error('[BouwFactuur] Migration to cloud storage incomplete:', err);
-      // Stay in remote mode — subsequent saves will sync.
-    }
-    return shape(local, 'remote', migrated);
-  }
-
   if (remoteEmpty) {
-    return shape({ profile: null, clients: [], invoices: [], nextnum: null }, 'remote', false);
+    const legacy = userId ? findLegacyData(userId) : null;
+    if (legacy) {
+      // Push legacy data to D1; only clean local copies up after success.
+      const writes = [];
+      if (legacy.profile != null) writes.push(remoteSet(KEYS.profile, legacy.profile));
+      if (legacy.clients.length) writes.push(remoteSet(KEYS.clients, legacy.clients));
+      if (legacy.invoices.length) writes.push(remoteSet(KEYS.invoices, legacy.invoices));
+      writes.push(remoteSet(KEYS.nextNum, legacy.nextnum ?? 1));
+      await Promise.all(writes);
+      legacyCleanup(legacy.prefix);
+      return {
+        profile: legacy.profile,
+        clients: legacy.clients,
+        invoices: legacy.invoices,
+        nextNum: legacy.nextnum ?? 1,
+        migrated: true,
+      };
+    }
+    return { profile: null, clients: [], invoices: [], nextNum: 1, migrated: false };
   }
 
-  return shape(
-    {
-      profile: remote.profile ?? null,
-      clients: Array.isArray(remote.clients) ? remote.clients : [],
-      invoices: Array.isArray(remote.invoices) ? remote.invoices : [],
-      nextnum: remote.nextnum,
-    },
-    'remote',
-    false
-  );
-}
-
-function shape(d, m, migrated) {
   return {
-    profile: d.profile ?? null,
-    clients: d.clients ?? [],
-    invoices: d.invoices ?? [],
-    nextNum: d.nextnum ?? 1,
-    mode: m,
-    migrated,
+    profile: remote.profile ?? null,
+    clients: Array.isArray(remote.clients) ? remote.clients : [],
+    invoices: Array.isArray(remote.invoices) ? remote.invoices : [],
+    nextNum: remote.nextnum ?? 1,
+    migrated: false,
   };
 }
 
 /**
- * Read a value. In remote mode, fetches from D1 (localStorage fallback on error).
- * @param {string} key — one of KEYS
- * @param {*} fallback
- */
-export async function storageGet(key, fallback) {
-  if (mode === 'remote') {
-    try {
-      const res = await fetch(`/api/storage/${key}`);
-      if (res.ok) {
-        const body = await res.json();
-        return body.value == null ? fallback : body.value;
-      }
-    } catch { /* fall through to local */ }
-  }
-  return localGet(lsKey(key), fallback);
-}
-
-/**
- * Write a value. Always mirrors to localStorage; in remote mode also writes D1.
- * @param {string} key — one of KEYS
- * @param {*} value
+ * Write a value to cloud storage.
+ * @throws when the write fails — callers must handle this visibly.
  */
 export async function storageSet(key, value) {
-  localSet(lsKey(key), value);
-  if (mode === 'remote') {
-    try {
-      await remoteSet(key, value);
-    } catch (err) {
-      console.error(`[BouwFactuur] Cloud write failed for ${key} (saved locally):`, err);
-    }
-  }
+  await remoteSet(key, value);
 }
 
-/** Remove a key from storage. */
+/** Remove a key from cloud storage. @throws on failure */
 export async function storageDel(key) {
-  localDel(lsKey(key));
-  if (mode === 'remote') {
-    try { await remoteDel(key); } catch (err) {
-      console.error(`[BouwFactuur] Cloud delete failed for ${key}:`, err);
-    }
-  }
+  await remoteDel(key);
 }
 
-/** Clear all BouwFactuur data for the current user (both backends). */
+/** Remove all of the user's data from cloud storage. @throws on failure */
 export async function storageClearAll() {
-  for (const key of Object.values(KEYS)) {
-    localDel(lsKey(key));
-    if (mode === 'remote') {
-      try { await remoteDel(key); } catch { /* noop */ }
-    }
-  }
+  await Promise.all(Object.values(KEYS).map((k) => remoteDel(k)));
 }

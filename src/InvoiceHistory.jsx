@@ -5,7 +5,7 @@ import { btn1, btn2, sec, crd } from './styles.js';
 
 export default function InvoiceHistory({
   invoices, onBack, onNew, onLoad, onDuplicate, onDelete,
-  onToggleStatus, onExportBackup, onImportBackup, storageMode = 'local',
+  onToggleStatus, onExportBackup, onImportBackup,
 }) {
   const fileRef = useRef(null);
 
@@ -115,9 +115,7 @@ export default function InvoiceHistory({
             />
           </div>
           <div style={{ fontSize: '10px', color: 'var(--tm)', marginTop: '6px', lineHeight: 1.6 }}>
-            {storageMode === 'remote'
-              ? 'Gegevens worden opgeslagen in de cloud (Cloudflare D1) en zijn beschikbaar op al uw apparaten. Een backup blijft verstandig.'
-              : 'Gegevens staan lokaal in deze browser. Download regelmatig een backup om verlies te voorkomen.'}
+            Uw gegevens worden veilig in de cloud opgeslagen, gekoppeld aan uw account. Download af en toe een backup voor extra zekerheid.
           </div>
         </div>
       </div>

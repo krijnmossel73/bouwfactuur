@@ -12,7 +12,7 @@ Compliant invoicing tool for Dutch construction companies. Handles BTW verlegd (
 - **KvK integration** — look up companies by KvK-nummer via the KvK Zoeken API, auto-fills name/address fields (free test environment included)
 - **DICO/NLCIUS XML export** — generate UBL 2.1 NLCIUS-compliant invoice XML with construction-specific fields (G-rekening, btw verlegd, Wka), compatible with Peppol and DICO service providers
 - **Peppol e-invoicing** — look up recipients in the Peppol Directory and send invoices directly via a Peppol Access Point (Storecove, eConnect, or custom provider)
-- **Authentication** — optional login via Supabase Auth (email/password and Google); anonymous use stays fully functional on localStorage
+- **Authentication** — account required (Supabase Auth: email/password and Google); visitors see a public landing page with a detailed explanation at `#/uitleg`
 - **Persistent storage** — company profiles, clients, and invoice history saved per user. With D1 enabled, data is stored in the cloud and follows your login across devices; without it, the app falls back to per-user localStorage.
 - **Auto-numbering** — sequential invoice numbers that persist across sessions
 - **Compliance check** — pre-export checklist against Belastingdienst factuurvereisten and Wka requirements (incl. IBAN mod-97 validation and mandatory client BTW-nr when verlegd)
@@ -60,7 +60,7 @@ How it behaves:
 
 ## Authentication (Supabase)
 
-Login (email/password and Google) runs on [Supabase Auth](https://supabase.com/auth). Without it configured, the app works anonymously in localStorage-only mode and hides all login UI — cloud storage requires login.
+Login (email/password and Google) runs on [Supabase Auth](https://supabase.com/auth) and is required to use the app: all data lives in Cloudflare D1, tied to the user's account. Non-logged-in visitors get a landing page with register/login and a link to the explanation page (`#/uitleg`).
 
 Setup:
 
@@ -88,7 +88,7 @@ Setup:
 6. npm run deploy
 ```
 
-How it works: the browser holds a Supabase session and sends its JWT as a Bearer token to `/api/storage/*`; the Pages Functions middleware cryptographically verifies it against the project's JWKS endpoint (or `SUPABASE_JWT_SECRET` for legacy HS256 projects) and scopes all D1 rows to the verified user ID. Login is optional: anonymous users keep full functionality on localStorage, and their existing local data migrates to D1 automatically on first login.
+How it works: the browser holds a Supabase session and sends its JWT as a Bearer token to `/api/storage/*`; the Pages Functions middleware cryptographically verifies it against the project's JWKS endpoint (or `SUPABASE_JWT_SECRET` for legacy HS256 projects) and scopes all D1 rows to the verified user ID. There is no localStorage backend: data created by pre-account versions of the app is migrated to D1 once on first login and then removed from the browser.
 
 ## Deploy to Cloudflare Pages
 

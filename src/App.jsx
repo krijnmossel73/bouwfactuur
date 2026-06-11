@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { storageSet, setStorageUser, setAuthTokenProvider, loadAll, KEYS } from './storage.js';
+import { storageSet, setAuthTokenProvider, loadAll, KEYS } from './storage.js';
 import { supabase } from './supabase.js';
 import AuthModal from './AuthModal.jsx';
+import LandingPage from './LandingPage.jsx';
+import Uitleg from './Uitleg.jsx';
 import { TRADE_PERCENTAGES, BLANK_OA, BLANK_OG, BLANK_PROJECT, BLANK_LINE } from './constants.js';
 import { fmt, fmtDate, calcVerval, makeInvoiceNumber, calcTotals } from './utils.js';
 import { PlusIcon, TrashIcon, FileIcon, EyeIcon, BldgIcon, SaveIcon, DownIcon, ListIcon, LogoIcon } from './Icons.jsx';
@@ -40,8 +42,9 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [profLoaded, setProfLoaded] = useState(false);
   const [user, setUser] = useState(null); // { email, id } or null
-  const [storageMode, setStorageMode] = useState('local'); // 'local' | 'remote'
-  const [authModal, setAuthModal] = useState(null); // null | 'login' | 'newPassword'
+  const [loadError, setLoadError] = useState(false);
+  const [route, setRoute] = useState(window.location.hash); // '' | '#/uitleg'
+  const [authModal, setAuthModal] = useState(null); // null | 'login' | 'register' | 'newPassword'
 
   const gPerc = customGPerc !== null ? customGPerc : (TRADE_PERCENTAGES[oa.trade] || 40);
   const totals = calcTotals(lines, btwVerlegd, useGrek, gPerc, btwTarief);
@@ -50,32 +53,48 @@ export default function App() {
 
   const flash = (m) => { setToast(m); setTimeout(() => setToast(null), 2500); };
 
-  // ── Auth + data loading (Supabase session → D1; otherwise localStorage) ──
-  const applySession = async (session, { showMigrationToast = true } = {}) => {
+  // ── Auth + data loading (account required; all data in cloud storage) ──
+  const resetData = () => {
+    setOa({ ...BLANK_OA }); setProfLoaded(false);
+    setOg({ ...BLANK_OG }); setProject({ ...BLANK_PROJECT });
+    setLines([{ ...BLANK_LINE }]);
+    setSavedClients([]); setInvoices([]); setNextNum(1);
+    setView('editor'); setStep(0);
+  };
+
+  const applySession = async (session) => {
     const sUser = session?.user || null;
-    if (sUser) {
-      setUser({ email: sUser.email, id: sUser.id });
-      setStorageUser(sUser.id);
-      setAuthTokenProvider(async () => {
-        const { data } = await supabase.auth.getSession();
-        return data.session?.access_token || null;
-      });
-    } else {
+    setLoadError(false);
+
+    if (!sUser) {
       setUser(null);
-      setStorageUser('');
       setAuthTokenProvider(null);
+      resetData();
+      return;
     }
 
-    const res = await loadAll(!!sUser);
-    if (res.profile) { setOa(res.profile); setProfLoaded(true); }
-    setSavedClients(res.clients);
-    setInvoices(res.invoices);
-    setNextNum(res.nextNum);
-    setStorageMode(res.mode);
-    if (res.migrated && showMigrationToast) flash('Gegevens gemigreerd naar cloudopslag');
+    setUser({ email: sUser.email, id: sUser.id });
+    setAuthTokenProvider(async () => {
+      const { data } = await supabase.auth.getSession();
+      return data.session?.access_token || null;
+    });
+
+    try {
+      const res = await loadAll(sUser.id);
+      if (res.profile) { setOa(res.profile); setProfLoaded(true); }
+      setSavedClients(res.clients);
+      setInvoices(res.invoices);
+      setNextNum(res.nextNum);
+      if (res.migrated) flash('Gegevens gemigreerd naar uw account');
+    } catch {
+      setLoadError(true);
+    }
   };
 
   useEffect(() => {
+    const onHash = () => setRoute(window.location.hash);
+    window.addEventListener('hashchange', onHash);
+
     let sub = null;
     (async () => {
       if (supabase) {
@@ -89,18 +108,31 @@ export default function App() {
             setAuthModal('newPassword');
           }
         }));
-      } else {
-        await applySession(null);
       }
       setLoading(false);
     })();
-    return () => sub?.unsubscribe();
+    return () => { sub?.unsubscribe(); window.removeEventListener('hashchange', onHash); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const logout = async () => {
     if (supabase) await supabase.auth.signOut();
     // applySession(null) follows via onAuthStateChange (SIGNED_OUT)
+  };
+
+  /**
+   * Persist a value to cloud storage with visible failure handling.
+   * Returns true on success; on failure flashes an error and returns false
+   * so callers can avoid advancing dependent state (e.g. invoice numbers).
+   */
+  const persist = async (key, value) => {
+    try {
+      await storageSet(key, value);
+      return true;
+    } catch {
+      flash('Opslaan mislukt — controleer uw internetverbinding');
+      return false;
+    }
   };
 
   // ── Auto-generate first invoice number ──
@@ -114,7 +146,7 @@ export default function App() {
   //  ACTIONS
   // ═══════════════════════════════════════════
   const saveProfile = async () => {
-    await storageSet(KEYS.profile, oa);
+    if (!(await persist(KEYS.profile, oa))) return;
     setProfLoaded(true);
     flash('Profiel opgeslagen');
   };
@@ -125,7 +157,7 @@ export default function App() {
     const next = [...savedClients];
     if (idx >= 0) next[idx] = { ...og }; else next.push({ ...og });
     setSavedClients(next);
-    await storageSet(KEYS.clients, next);
+    if (!(await persist(KEYS.clients, next))) return;
     flash(`Klant "${og.naam}" opgeslagen`);
   };
 
@@ -142,11 +174,11 @@ export default function App() {
       totals: { ...totals },
     };
     const next = [inv, ...invoices];
+    if (!(await persist(KEYS.invoices, next))) return;
     setInvoices(next);
-    await storageSet(KEYS.invoices, next);
     const nn = nextNum + 1;
     setNextNum(nn);
-    await storageSet(KEYS.nextNum, nn);
+    await persist(KEYS.nextNum, nn);
     flash(`Factuur ${inv.nummer} opgeslagen`);
   };
 
@@ -175,8 +207,8 @@ export default function App() {
     const inv = invoices.find((i) => i.id === id);
     if (!window.confirm(`Factuur ${inv?.nummer || ''} definitief verwijderen?`)) return;
     const next = invoices.filter((i) => i.id !== id);
+    if (!(await persist(KEYS.invoices, next))) return;
     setInvoices(next);
-    await storageSet(KEYS.invoices, next);
     flash('Verwijderd');
   };
 
@@ -184,8 +216,8 @@ export default function App() {
     const next = invoices.map((i) =>
       i.id === id ? { ...i, status: (i.status ?? 'open') === 'open' ? 'betaald' : 'open' } : i
     );
+    if (!(await persist(KEYS.invoices, next))) return;
     setInvoices(next);
-    await storageSet(KEYS.invoices, next);
   };
 
   // ── Backup / restore (localStorage is fragile — give users an escape hatch) ──
@@ -209,16 +241,22 @@ export default function App() {
       const data = JSON.parse(await file.text());
       if (data.app !== 'bouwfactuur') throw new Error('not a bouwfactuur backup');
       if (!window.confirm('Backup terugzetten? Huidige gegevens worden overschreven.')) return;
-      if (data.profile) { setOa(data.profile); setProfLoaded(true); await storageSet(KEYS.profile, data.profile); }
       const cls = Array.isArray(data.clients) ? data.clients : [];
       const invs = Array.isArray(data.invoices) ? data.invoices : [];
       const nn = Number.isInteger(data.nextNum) ? data.nextNum : 1;
-      setSavedClients(cls); await storageSet(KEYS.clients, cls);
-      setInvoices(invs); await storageSet(KEYS.invoices, invs);
-      setNextNum(nn); await storageSet(KEYS.nextNum, nn);
+      await Promise.all([
+        data.profile ? storageSet(KEYS.profile, data.profile) : null,
+        storageSet(KEYS.clients, cls),
+        storageSet(KEYS.invoices, invs),
+        storageSet(KEYS.nextNum, nn),
+      ].filter(Boolean));
+      if (data.profile) { setOa(data.profile); setProfLoaded(true); }
+      setSavedClients(cls);
+      setInvoices(invs);
+      setNextNum(nn);
       flash('Backup teruggezet');
-    } catch {
-      flash('Ongeldig backupbestand');
+    } catch (err) {
+      flash(String(err).includes('storage') ? 'Opslaan mislukt — controleer uw internetverbinding' : 'Ongeldig backupbestand');
     }
   };
 
@@ -253,6 +291,57 @@ export default function App() {
   // ═══════════════════════════════════════════
   //  ROUTE: PDF
   // ═══════════════════════════════════════════
+  // ── Public routes & auth gate ──
+  if (loading) {
+    return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--tm)' }}>Laden...</div>;
+  }
+
+  if (route === '#/uitleg') {
+    return (
+      <>
+        {authModal && <AuthModal mode={authModal} onClose={() => setAuthModal(null)} onDone={() => setAuthModal(null)} />}
+        <Uitleg
+          loggedIn={!!user}
+          onBack={() => { window.location.hash = ''; }}
+          onRegister={() => setAuthModal('register')}
+        />
+      </>
+    );
+  }
+
+  if (!user) {
+    return (
+      <>
+        {authModal && <AuthModal mode={authModal} onClose={() => setAuthModal(null)} onDone={() => setAuthModal(null)} />}
+        <LandingPage
+          onLogin={() => setAuthModal('login')}
+          onRegister={() => setAuthModal('register')}
+        />
+      </>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '20px', textAlign: 'center' }}>
+        <div style={{ fontSize: '14px', fontWeight: 700 }}>Gegevens konden niet worden geladen</div>
+        <div style={{ fontSize: '11px', color: 'var(--tm)', maxWidth: '320px', lineHeight: 1.6 }}>
+          Er is een probleem met de verbinding naar de cloudopslag. Controleer uw internetverbinding en probeer het opnieuw.
+        </div>
+        <button
+          style={{ ...btn1, padding: '9px 20px' }}
+          onClick={async () => {
+            const { data } = await supabase.auth.getSession();
+            applySession(data.session);
+          }}
+        >
+          Opnieuw proberen
+        </button>
+        <button style={{ ...btn2, padding: '7px 16px', fontSize: '10px' }} onClick={logout}>Uitloggen</button>
+      </div>
+    );
+  }
+
   if (view === 'pdf') {
     return (
       <InvoicePDF
@@ -278,7 +367,6 @@ export default function App() {
         onToggleStatus={toggleInvoiceStatus}
         onExportBackup={exportBackup}
         onImportBackup={importBackup}
-        storageMode={storageMode}
       />
     );
   }
@@ -286,10 +374,6 @@ export default function App() {
   // ═══════════════════════════════════════════
   //  ROUTE: EDITOR
   // ═══════════════════════════════════════════
-  if (loading) {
-    return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--tm)' }}>Laden...</div>;
-  }
-
   return (
     <div style={{ minHeight: '100vh' }}>
       {/* ── Auth modal ── */}
@@ -331,20 +415,15 @@ export default function App() {
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {!user && supabase && (
-              <button onClick={() => setAuthModal('login')} style={{ ...btn2, padding: '6px 12px', fontSize: '10px' }}>
-                Inloggen
-              </button>
-            )}
             {user && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: 'var(--abg)', borderRadius: '4px', border: '1px solid var(--bd)' }}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--tm)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
                 <span style={{ fontSize: '10px', color: 'var(--tm)', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</span>
                 <span
-                  title={storageMode === 'remote' ? 'Cloudopslag (D1) — gegevens beschikbaar op al uw apparaten' : 'Lokale opslag — gegevens alleen in deze browser'}
-                  style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '.05em', color: storageMode === 'remote' ? 'var(--ok)' : 'var(--tm)' }}
+                  title="Cloudopslag — uw gegevens zijn beschikbaar op al uw apparaten"
+                  style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '.05em', color: 'var(--ok)' }}
                 >
-                  {storageMode === 'remote' ? '☁' : '⌂'}
+                  ☁
                 </span>
                 <button onClick={logout} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '9px', color: 'var(--dn)', marginLeft: '2px', padding: 0 }} title="Uitloggen">✕</button>
               </div>
