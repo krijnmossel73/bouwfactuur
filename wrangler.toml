@@ -14,6 +14,6 @@ database_id = "291bd967-987d-4371-b3dc-9f4e3209c213"
 # ── Supabase Auth (server-side JWT verification) ──
 # Uncomment and set after creating your Supabase project.
 # The middleware verifies tokens against <SUPABASE_URL>/auth/v1/.well-known/jwks.json
-#
-# [vars]
-# SUPABASE_URL = "https://YOUR-PROJECT-REF.supabase.co"
+
+[vars]
+SUPABASE_URL = "https://mjdqxclxexyhviohomyq.supabase.co"
