@@ -1,56 +1,70 @@
 /**
  * Cloudflare Pages Functions Middleware
  *
- * Runs before all /functions/** handlers.
- * Extracts user identity from the Cloudflare Access JWT
- * (Cf-Access-Jwt-Assertion header) and passes it to handlers
- * via context.data.user.
+ * Runs before all /functions/** handlers. Verifies the Supabase Auth
+ * JWT from the Authorization header and exposes the user to handlers
+ * via context.data.user = { id, email } (or null when unauthenticated).
  *
- * When Cloudflare Access is in front of the app, the JWT is already
- * validated before reaching our Functions — we just decode the payload.
+ * Unlike the previous Cloudflare Access version (which only decoded a
+ * header that Access had already validated), this middleware performs
+ * full cryptographic verification — required because the browser sends
+ * the token directly.
  *
- * If Access is NOT configured (local dev, or Access not enabled),
- * handlers still work but context.data.user will be null.
+ * Configuration (Pages env vars, see wrangler.toml):
+ *   SUPABASE_URL        — https://<project-ref>.supabase.co
+ *                         Verification via the project's JWKS endpoint
+ *                         (asymmetric signing keys, the default for new
+ *                         Supabase projects).
+ *   SUPABASE_JWT_SECRET — optional; legacy HS256 shared secret. If set,
+ *                         it takes precedence over JWKS.
+ *
+ * With neither configured, all requests are treated as unauthenticated
+ * (the app then runs in localStorage-only mode).
  */
 
-function decodeJwtPayload(token) {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 
-    // Base64url decode the payload (middle part)
-    const payload = parts[1]
-      .replace(/-/g, '+')
-      .replace(/_/g, '/');
+let jwks = null;
+let jwksUrl = null;
 
-    const decoded = atob(payload);
-    return JSON.parse(decoded);
-  } catch {
-    return null;
+async function verifyToken(token, env) {
+  if (env.SUPABASE_JWT_SECRET) {
+    const secret = new TextEncoder().encode(env.SUPABASE_JWT_SECRET);
+    const { payload } = await jwtVerify(token, secret, { audience: 'authenticated' });
+    return payload;
   }
+  if (env.SUPABASE_URL) {
+    const url = `${env.SUPABASE_URL.replace(/\/$/, '')}/auth/v1/.well-known/jwks.json`;
+    if (!jwks || jwksUrl !== url) {
+      jwks = createRemoteJWKSet(new URL(url));
+      jwksUrl = url;
+    }
+    const { payload } = await jwtVerify(token, jwks, { audience: 'authenticated' });
+    return payload;
+  }
+  return null;
 }
 
 export async function onRequest(context) {
-  const jwt = context.request.headers.get('cf-access-jwt-assertion');
+  context.data.user = null;
 
-  if (jwt) {
-    const payload = decodeJwtPayload(jwt);
-    if (payload) {
-      context.data.user = {
-        email: payload.email || null,
-        sub: payload.sub || null, // Unique user ID
-        iat: payload.iat || null,
-        exp: payload.exp || null,
-        // Use email as the user identifier for storage scoping
-        id: payload.email || payload.sub || 'anonymous',
-      };
-    } else {
-      context.data.user = null;
+  const auth = context.request.headers.get('Authorization') || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+
+  if (token) {
+    try {
+      const payload = await verifyToken(token, context.env);
+      if (payload && payload.sub) {
+        context.data.user = {
+          id: payload.sub, // Supabase user UUID — stable storage key
+          email: payload.email || null,
+        };
+      }
+    } catch {
+      // Invalid/expired token → treat as unauthenticated; storage
+      // endpoints respond 401 and the client falls back gracefully.
     }
-  } else {
-    context.data.user = null;
   }
 
-  // Continue to the next handler
-  return await context.next();
+  return context.next();
 }

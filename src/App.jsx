@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { storageSet, setStorageUser, loadAll, KEYS } from './storage.js';
+import { storageSet, setStorageUser, setAuthTokenProvider, loadAll, KEYS } from './storage.js';
+import { supabase } from './supabase.js';
+import AuthModal from './AuthModal.jsx';
 import { TRADE_PERCENTAGES, BLANK_OA, BLANK_OG, BLANK_PROJECT, BLANK_LINE } from './constants.js';
 import { fmt, fmtDate, calcVerval, makeInvoiceNumber, calcTotals } from './utils.js';
 import { PlusIcon, TrashIcon, FileIcon, EyeIcon, BldgIcon, SaveIcon, DownIcon, ListIcon, LogoIcon } from './Icons.jsx';
@@ -39,6 +41,7 @@ export default function App() {
   const [profLoaded, setProfLoaded] = useState(false);
   const [user, setUser] = useState(null); // { email, id } or null
   const [storageMode, setStorageMode] = useState('local'); // 'local' | 'remote'
+  const [authModal, setAuthModal] = useState(null); // null | 'login' | 'newPassword'
 
   const gPerc = customGPerc !== null ? customGPerc : (TRADE_PERCENTAGES[oa.trade] || 40);
   const totals = calcTotals(lines, btwVerlegd, useGrek, gPerc, btwTarief);
@@ -47,37 +50,58 @@ export default function App() {
 
   const flash = (m) => { setToast(m); setTimeout(() => setToast(null), 2500); };
 
-  // ── Load: check auth first, then load data (D1 when available, else local) ──
-  useEffect(() => {
-    (async () => {
-      // 1. Check Cloudflare Access auth
-      let authenticated = false;
-      try {
-        const authRes = await fetch('/api/auth/me');
-        if (authRes.ok) {
-          const authData = await authRes.json();
-          if (authData.authenticated) {
-            authenticated = true;
-            setUser({ email: authData.email, id: authData.id });
-            setStorageUser(authData.email);
-          }
-        }
-      } catch {
-        // Auth endpoint not available (local dev) — continue without auth
-      }
+  // ── Auth + data loading (Supabase session → D1; otherwise localStorage) ──
+  const applySession = async (session, { showMigrationToast = true } = {}) => {
+    const sUser = session?.user || null;
+    if (sUser) {
+      setUser({ email: sUser.email, id: sUser.id });
+      setStorageUser(sUser.id);
+      setAuthTokenProvider(async () => {
+        const { data } = await supabase.auth.getSession();
+        return data.session?.access_token || null;
+      });
+    } else {
+      setUser(null);
+      setStorageUser('');
+      setAuthTokenProvider(null);
+    }
 
-      // 2. Load data — remote (D1) when authenticated + binding present,
-      //    with automatic one-time migration of existing local data.
-      const res = await loadAll(authenticated);
-      if (res.profile) { setOa(res.profile); setProfLoaded(true); }
-      setSavedClients(res.clients);
-      setInvoices(res.invoices);
-      setNextNum(res.nextNum);
-      setStorageMode(res.mode);
+    const res = await loadAll(!!sUser);
+    if (res.profile) { setOa(res.profile); setProfLoaded(true); }
+    setSavedClients(res.clients);
+    setInvoices(res.invoices);
+    setNextNum(res.nextNum);
+    setStorageMode(res.mode);
+    if (res.migrated && showMigrationToast) flash('Gegevens gemigreerd naar cloudopslag');
+  };
+
+  useEffect(() => {
+    let sub = null;
+    (async () => {
+      if (supabase) {
+        const { data } = await supabase.auth.getSession();
+        await applySession(data.session);
+        ({ data: { subscription: sub } } = supabase.auth.onAuthStateChange((event, session) => {
+          if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+            applySession(session);
+            if (event === 'SIGNED_IN') setAuthModal(null);
+          } else if (event === 'PASSWORD_RECOVERY') {
+            setAuthModal('newPassword');
+          }
+        }));
+      } else {
+        await applySession(null);
+      }
       setLoading(false);
-      if (res.migrated) flash('Gegevens gemigreerd naar cloudopslag');
     })();
+    return () => sub?.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const logout = async () => {
+    if (supabase) await supabase.auth.signOut();
+    // applySession(null) follows via onAuthStateChange (SIGNED_OUT)
+  };
 
   // ── Auto-generate first invoice number ──
   useEffect(() => {
@@ -268,6 +292,15 @@ export default function App() {
 
   return (
     <div style={{ minHeight: '100vh' }}>
+      {/* ── Auth modal ── */}
+      {authModal && (
+        <AuthModal
+          mode={authModal}
+          onClose={() => setAuthModal(null)}
+          onDone={() => setAuthModal(null)}
+        />
+      )}
+
       {/* ── Toast ── */}
       {toast && (
         <div style={{
@@ -298,6 +331,11 @@ export default function App() {
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {!user && supabase && (
+              <button onClick={() => setAuthModal('login')} style={{ ...btn2, padding: '6px 12px', fontSize: '10px' }}>
+                Inloggen
+              </button>
+            )}
             {user && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: 'var(--abg)', borderRadius: '4px', border: '1px solid var(--bd)' }}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--tm)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
@@ -308,7 +346,7 @@ export default function App() {
                 >
                   {storageMode === 'remote' ? '☁' : '⌂'}
                 </span>
-                <a href={`https://${window.location.host}/cdn-cgi/access/logout`} style={{ fontSize: '9px', color: 'var(--dn)', textDecoration: 'none', marginLeft: '2px' }} title="Uitloggen">✕</a>
+                <button onClick={logout} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '9px', color: 'var(--dn)', marginLeft: '2px', padding: 0 }} title="Uitloggen">✕</button>
               </div>
             )}
             <button onClick={() => setView('history')} style={{ ...btn2, padding: '6px 10px', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '5px' }}>

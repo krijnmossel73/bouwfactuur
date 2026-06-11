@@ -6,7 +6,7 @@
  * DELETE → removes the key for the user
  *
  * Keys are restricted to: profile | clients | invoices | nextnum.
- * Requires Cloudflare Access authentication (middleware sets context.data.user).
+ * Requires Supabase authentication (middleware verifies the JWT and sets context.data.user).
  */
 
 const VALID_KEYS = ['profile', 'clients', 'invoices', 'nextnum'];

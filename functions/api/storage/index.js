@@ -5,7 +5,7 @@
  *   { data: { profile, clients, invoices, nextnum } }  (missing keys → null)
  *
  * Responses:
- *   401 — not authenticated (no Cloudflare Access JWT)
+ *   401 — not authenticated (no valid Supabase JWT)
  *   503 — D1 binding "DB" not configured (client falls back to localStorage)
  */
 

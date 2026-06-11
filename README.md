@@ -12,7 +12,7 @@ Compliant invoicing tool for Dutch construction companies. Handles BTW verlegd (
 - **KvK integration** — look up companies by KvK-nummer via the KvK Zoeken API, auto-fills name/address fields (free test environment included)
 - **DICO/NLCIUS XML export** — generate UBL 2.1 NLCIUS-compliant invoice XML with construction-specific fields (G-rekening, btw verlegd, Wka), compatible with Peppol and DICO service providers
 - **Peppol e-invoicing** — look up recipients in the Peppol Directory and send invoices directly via a Peppol Access Point (Storecove, eConnect, or custom provider)
-- **Authentication** — Cloudflare Access integration with email OTP, per-user data isolation, and zero-password login
+- **Authentication** — optional login via Supabase Auth (email/password and Google); anonymous use stays fully functional on localStorage
 - **Persistent storage** — company profiles, clients, and invoice history saved per user. With D1 enabled, data is stored in the cloud and follows your login across devices; without it, the app falls back to per-user localStorage.
 - **Auto-numbering** — sequential invoice numbers that persist across sessions
 - **Compliance check** — pre-export checklist against Belastingdienst factuurvereisten and Wka requirements (incl. IBAN mod-97 validation and mandatory client BTW-nr when verlegd)
@@ -53,12 +53,42 @@ npx wrangler d1 execute bouwfactuur --local --file=./schema.sql
 
 How it behaves:
 
-- **Authenticated + D1 bound** → reads/writes go to D1 via `/api/storage`. A green cloud icon (☁) appears next to your email in the header.
+- **Logged in + D1 bound** → reads/writes go to D1 via `/api/storage`. A green cloud icon (☁) appears next to your email in the header.
 - **First load with an empty D1 store** → existing localStorage data is migrated up automatically (one-time), with a confirmation toast.
 - **No D1 binding / not authenticated / API error** → transparent fallback to localStorage, identical to pre-D1 behaviour.
 - Every cloud write is mirrored to localStorage as an offline backup; on load, cloud data wins whenever it exists.
 
-The storage API (`/api/storage`, `/api/storage/:key`) requires a Cloudflare Access JWT — unauthenticated requests get a 401, and each user only ever sees rows keyed to their own identity.
+## Authentication (Supabase)
+
+Login (email/password and Google) runs on [Supabase Auth](https://supabase.com/auth). Without it configured, the app works anonymously in localStorage-only mode and hides all login UI — cloud storage requires login.
+
+Setup:
+
+```text
+1. Create a free Supabase project (supabase.com → New project)
+
+2. Google login:
+   - Google Cloud Console → APIs & Services → Credentials →
+     Create OAuth client ID (Web application)
+   - Authorized redirect URI: https://<project-ref>.supabase.co/auth/v1/callback
+   - Supabase → Authentication → Sign In / Providers → Google →
+     paste Client ID + Secret, enable
+
+3. Supabase → Authentication → URL Configuration:
+   - Site URL: https://bouwfactuur.pages.dev
+   - Additional redirect URLs: http://localhost:5173, http://localhost:8788
+
+4. Client env: copy .env.example to .env, fill in
+   VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY
+   (Project Settings → API)
+
+5. Server env: uncomment [vars] SUPABASE_URL in wrangler.toml
+   (same URL as step 4)
+
+6. npm run deploy
+```
+
+How it works: the browser holds a Supabase session and sends its JWT as a Bearer token to `/api/storage/*`; the Pages Functions middleware cryptographically verifies it against the project's JWKS endpoint (or `SUPABASE_JWT_SECRET` for legacy HS256 projects) and scopes all D1 rows to the verified user ID. Login is optional: anonymous users keep full functionality on localStorage, and their existing local data migrates to D1 automatically on first login.
 
 ## Deploy to Cloudflare Pages
 

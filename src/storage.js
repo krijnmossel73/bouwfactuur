@@ -3,7 +3,7 @@
  *
  * Two backends:
  *  - REMOTE (Cloudflare D1 via /api/storage) — used when the user is
- *    authenticated through Cloudflare Access AND the D1 binding exists.
+ *    logged in via Supabase Auth AND the D1 binding exists.
  *    Data follows the user across browsers and devices.
  *  - LOCAL (localStorage, per-user key scoping) — used in local dev,
  *    when not authenticated, or when the D1 binding is absent. Identical
@@ -18,6 +18,26 @@
 
 let userScope = '';
 let mode = 'local'; // 'local' | 'remote'
+let tokenProvider = null; // async () => access token string | null
+
+/**
+ * Register a function that returns the current auth access token.
+ * Called before every remote request so refreshed tokens are picked up.
+ */
+export function setAuthTokenProvider(fn) {
+  tokenProvider = fn;
+}
+
+async function authHeaders() {
+  const h = { 'Content-Type': 'application/json' };
+  if (tokenProvider) {
+    try {
+      const token = await tokenProvider();
+      if (token) h['Authorization'] = `Bearer ${token}`;
+    } catch { /* request proceeds unauthenticated → 401 → local fallback */ }
+  }
+  return h;
+}
 
 /** Logical storage keys — must match the server-side allowlist. */
 export const KEYS = {
@@ -33,7 +53,7 @@ export function getStorageMode() {
 
 /**
  * Set the current user scope for localStorage key isolation.
- * @param {string} userId — user email or ID (empty string for anonymous)
+ * @param {string} userId — Supabase user ID (empty string for anonymous)
  */
 export function setStorageUser(userId) {
   userScope = userId ? simpleHash(userId) : '';
@@ -88,7 +108,7 @@ function localDel(physicalKey) {
 // ── Remote (D1) primitives ──
 
 async function remoteGetAll() {
-  const res = await fetch('/api/storage');
+  const res = await fetch('/api/storage', { headers: await authHeaders() });
   if (!res.ok) {
     const err = new Error(`remote storage unavailable (${res.status})`);
     err.status = res.status;
@@ -101,14 +121,14 @@ async function remoteGetAll() {
 async function remoteSet(key, value) {
   const res = await fetch(`/api/storage/${key}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await authHeaders(),
     body: JSON.stringify({ value }),
   });
   if (!res.ok) throw new Error(`remote write failed (${res.status})`);
 }
 
 async function remoteDel(key) {
-  const res = await fetch(`/api/storage/${key}`, { method: 'DELETE' });
+  const res = await fetch(`/api/storage/${key}`, { method: 'DELETE', headers: await authHeaders() });
   if (!res.ok) throw new Error(`remote delete failed (${res.status})`);
 }
 
@@ -118,16 +138,33 @@ async function remoteDel(key) {
  * Load all app data, deciding the backend and migrating if needed.
  * Call once on app start, AFTER setStorageUser().
  *
- * @param {boolean} authenticated — whether a Cloudflare Access user is present
+ * @param {boolean} authenticated — whether a Supabase user session is present
  * @returns {Promise<{profile, clients, invoices, nextNum, mode, migrated}>}
  */
 export async function loadAll(authenticated) {
-  const local = {
+  let local = {
     profile: localGet(lsKey(KEYS.profile), null),
     clients: localGet(lsKey(KEYS.clients), []),
     invoices: localGet(lsKey(KEYS.invoices), []),
     nextnum: localGet(lsKey(KEYS.nextNum), null),
   };
+
+  // Legacy fallback: data created before login existed lives under the
+  // anonymous "bouwfactuur:" prefix. If the user-scoped store is empty,
+  // adopt the anonymous data so it migrates on first login.
+  const scopedEmpty =
+    local.profile == null && !local.clients.length && !local.invoices.length && local.nextnum == null;
+  if (userScope && scopedEmpty) {
+    const legacy = {
+      profile: localGet('bouwfactuur:' + KEYS.profile, null),
+      clients: localGet('bouwfactuur:' + KEYS.clients, []),
+      invoices: localGet('bouwfactuur:' + KEYS.invoices, []),
+      nextnum: localGet('bouwfactuur:' + KEYS.nextNum, null),
+    };
+    const legacyHasData =
+      legacy.profile != null || legacy.clients.length > 0 || legacy.invoices.length > 0 || legacy.nextnum != null;
+    if (legacyHasData) local = legacy;
+  }
 
   if (!authenticated) {
     mode = 'local';
