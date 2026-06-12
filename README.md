@@ -13,6 +13,7 @@ Compliant invoicing tool for Dutch construction companies. Handles BTW verlegd (
 - **DICO/NLCIUS XML export** — generate UBL 2.1 NLCIUS-compliant invoice XML with construction-specific fields (G-rekening, btw verlegd, Wka), compatible with Peppol and DICO service providers
 - **Peppol e-invoicing** — look up recipients in the Peppol Directory and send invoices directly via a Peppol Access Point (Storecove, eConnect, or custom provider)
 - **Authentication** — account required (Supabase Auth: email/password and Google); visitors see a public landing page with a detailed explanation at `#/uitleg`
+- **Subscriptions (freemium)** — 2 invoices free (lifetime, enforced server-side), then BouwFactuur Pro via Stripe Checkout (iDEAL/card); customer portal for managing/canceling
 - **Persistent storage** — company profiles, clients, and invoice history saved per user. With D1 enabled, data is stored in the cloud and follows your login across devices; without it, the app falls back to per-user localStorage.
 - **Auto-numbering** — sequential invoice numbers that persist across sessions
 - **Compliance check** — pre-export checklist against Belastingdienst factuurvereisten and Wka requirements (incl. IBAN mod-97 validation and mandatory client BTW-nr when verlegd)
@@ -277,3 +278,29 @@ For Dutch companies, the Peppol participant ID uses scheme `0106` (KvK number).
 ## License
 
 Private — not yet open source.
+
+## Subscriptions (Stripe)
+
+Freemium model: every account can create 2 invoices for free (lifetime counter in the `accounts` table, enforced in `PUT /api/storage/invoices` — a 402 response triggers the paywall). A Stripe subscription removes the limit. Enforcement only activates when `STRIPE_SECRET_KEY` is configured, so the app works unlimited-free until billing is set up.
+
+Setup:
+
+```text
+1. Create a Stripe account; in the dashboard create a Product
+   "BouwFactuur Pro" with a recurring monthly Price (EUR)
+2. Payment methods: enable iDEAL, Cards and SEPA Direct Debit
+   (iDEAL first payment → SEPA for renewals)
+3. Developers → Webhooks → Add endpoint:
+   https://bouwfactuur.pages.dev/api/billing/webhook
+   Events: checkout.session.completed,
+           customer.subscription.updated,
+           customer.subscription.deleted
+4. Settings → Billing → Customer portal: activate (default config)
+5. Config:
+   - wrangler.toml [vars]: STRIPE_PRICE_ID = "price_..." (commit)
+   - npx wrangler pages secret put STRIPE_SECRET_KEY --project-name bouwfactuur
+   - npx wrangler pages secret put STRIPE_WEBHOOK_SECRET --project-name bouwfactuur
+6. Test with Stripe test mode keys first (test iDEAL always succeeds)
+```
+
+Endpoints: `GET /api/account` (plan, usage, price), `POST /api/billing/checkout`, `POST /api/billing/portal`, `POST /api/billing/webhook` (signature-verified). Webhook authenticity is checked with an HMAC over the raw body; subscription state lands in `accounts.subscription_status` / `current_period_end`.

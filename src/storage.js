@@ -32,7 +32,7 @@ export function setAuthTokenProvider(fn) {
   tokenProvider = fn;
 }
 
-async function authHeaders() {
+export async function authHeaders() {
   const h = { 'Content-Type': 'application/json' };
   if (tokenProvider) {
     const token = await tokenProvider();
@@ -56,7 +56,11 @@ async function remoteSet(key, value) {
     headers: await authHeaders(),
     body: JSON.stringify({ value }),
   });
-  if (!res.ok) throw new Error(`storage write failed (${res.status})`);
+  if (!res.ok) {
+    const err = new Error(`storage write failed (${res.status})`);
+    err.status = res.status; // 402 = subscription_required (freemium gate)
+    throw err;
+  }
 }
 
 async function remoteDel(key) {

@@ -41,6 +41,10 @@ export default function LandingPage({ onLogin, onRegister }) {
             </button>
           </div>
 
+          <div style={{ fontSize: '10px', color: 'var(--tm)', marginBottom: '10px' }}>
+            Uw eerste 2 facturen zijn gratis — geen betaalgegevens nodig.
+          </div>
+
           <a
             href="#/uitleg"
             style={{ fontSize: '11px', color: 'var(--ac)', textDecoration: 'underline' }}

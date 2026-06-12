@@ -6,6 +6,7 @@ import { btn1, btn2, sec, crd } from './styles.js';
 export default function InvoiceHistory({
   invoices, onBack, onNew, onLoad, onDuplicate, onDelete,
   onToggleStatus, onExportBackup, onImportBackup,
+  account, onUpgrade, onManageSubscription,
 }) {
   const fileRef = useRef(null);
 
@@ -90,6 +91,34 @@ export default function InvoiceHistory({
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Subscription */}
+        {account?.billingEnabled && (
+          <div style={{ marginTop: '24px', paddingTop: '14px', borderTop: '1px solid var(--bd)' }}>
+            <div style={{ fontSize: '9px', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--tm)', fontWeight: 600, marginBottom: '8px' }}>
+              Abonnement
+            </div>
+            {account.plan === 'pro' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '11px' }}>
+                  <strong>BouwFactuur Pro</strong> — {account.subscriptionStatus === 'past_due' ? 'betaling in behandeling' : 'actief'}
+                </span>
+                <button onClick={onManageSubscription} style={{ ...btn2, padding: '6px 12px', fontSize: '10px' }}>
+                  Abonnement beheren
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '11px', color: 'var(--tm)' }}>
+                  Gratis plan: {account.invoicesCreated ?? 0} van {account.freeLimit ?? 2} facturen gebruikt
+                </span>
+                <button onClick={onUpgrade} style={{ ...btn1, padding: '6px 12px', fontSize: '10px' }}>
+                  Upgrade naar Pro
+                </button>
+              </div>
+            )}
           </div>
         )}
 

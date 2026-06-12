@@ -4,6 +4,8 @@ import { supabase } from './supabase.js';
 import AuthModal from './AuthModal.jsx';
 import LandingPage from './LandingPage.jsx';
 import Uitleg from './Uitleg.jsx';
+import PaywallModal from './PaywallModal.jsx';
+import { getAccount, openPortal } from './billing.js';
 import { TRADE_PERCENTAGES, BLANK_OA, BLANK_OG, BLANK_PROJECT, BLANK_LINE } from './constants.js';
 import { fmt, fmtDate, calcVerval, makeInvoiceNumber, calcTotals } from './utils.js';
 import { PlusIcon, TrashIcon, FileIcon, EyeIcon, BldgIcon, SaveIcon, DownIcon, ListIcon, LogoIcon } from './Icons.jsx';
@@ -45,6 +47,8 @@ export default function App() {
   const [loadError, setLoadError] = useState(false);
   const [route, setRoute] = useState(window.location.hash); // '' | '#/uitleg'
   const [authModal, setAuthModal] = useState(null); // null | 'login' | 'register' | 'newPassword'
+  const [account, setAccount] = useState(null); // /api/account payload or null
+  const [paywall, setPaywall] = useState(false);
 
   const gPerc = customGPerc !== null ? customGPerc : (TRADE_PERCENTAGES[oa.trade] || 40);
   const totals = calcTotals(lines, btwVerlegd, useGrek, gPerc, btwTarief);
@@ -69,6 +73,8 @@ export default function App() {
     if (!sUser) {
       setUser(null);
       setAuthTokenProvider(null);
+      setAccount(null);
+      setPaywall(false);
       resetData();
       return;
     }
@@ -86,14 +92,29 @@ export default function App() {
       setInvoices(res.invoices);
       setNextNum(res.nextNum);
       if (res.migrated) flash('Gegevens gemigreerd naar uw account');
+      setAccount(await getAccount());
     } catch {
       setLoadError(true);
     }
   };
 
+  const refreshAccount = async () => setAccount(await getAccount());
+
   useEffect(() => {
     const onHash = () => setRoute(window.location.hash);
     window.addEventListener('hashchange', onHash);
+
+    // Back from Stripe Checkout?
+    const qp = new URLSearchParams(window.location.search);
+    const checkout = qp.get('checkout');
+    if (checkout) {
+      window.history.replaceState({}, '', window.location.pathname + window.location.hash);
+      if (checkout === 'success') {
+        flash('Bedankt! Uw abonnement wordt geactiveerd.');
+        // Webhook may lag a few seconds; refresh entitlement shortly after.
+        setTimeout(() => { getAccount().then(setAccount); }, 4000);
+      }
+    }
 
     let sub = null;
     (async () => {
@@ -129,8 +150,13 @@ export default function App() {
     try {
       await storageSet(key, value);
       return true;
-    } catch {
-      flash('Opslaan mislukt — controleer uw internetverbinding');
+    } catch (err) {
+      if (err?.status === 402) {
+        refreshAccount();
+        setPaywall(true);
+      } else {
+        flash('Opslaan mislukt — controleer uw internetverbinding');
+      }
       return false;
     }
   };
@@ -163,7 +189,13 @@ export default function App() {
 
   const loadClient = (c) => { setOg({ ...c }); flash(`"${c.naam}" geladen`); };
 
+  const atFreeLimit =
+    account?.billingEnabled &&
+    account?.plan === 'free' &&
+    (account?.invoicesCreated ?? 0) >= (account?.freeLimit ?? 2);
+
   const saveInvoice = async () => {
+    if (atFreeLimit) { setPaywall(true); return; }
     const inv = {
       id: Date.now().toString(),
       date: project.factuurdatum,
@@ -180,6 +212,7 @@ export default function App() {
     setNextNum(nn);
     await persist(KEYS.nextNum, nn);
     flash(`Factuur ${inv.nummer} opgeslagen`);
+    refreshAccount();
   };
 
   const loadInvoice = (inv) => {
@@ -256,7 +289,8 @@ export default function App() {
       setNextNum(nn);
       flash('Backup teruggezet');
     } catch (err) {
-      flash(String(err).includes('storage') ? 'Opslaan mislukt — controleer uw internetverbinding' : 'Ongeldig backupbestand');
+      if (err?.status === 402) { refreshAccount(); setPaywall(true); }
+      else flash(String(err).includes('storage') ? 'Opslaan mislukt — controleer uw internetverbinding' : 'Ongeldig backupbestand');
     }
   };
 
@@ -367,6 +401,11 @@ export default function App() {
         onToggleStatus={toggleInvoiceStatus}
         onExportBackup={exportBackup}
         onImportBackup={importBackup}
+        account={account}
+        onUpgrade={() => { setView('editor'); setPaywall(true); }}
+        onManageSubscription={async () => {
+          try { await openPortal(); } catch { flash('Kon het accountportaal niet openen'); }
+        }}
       />
     );
   }
@@ -376,6 +415,9 @@ export default function App() {
   // ═══════════════════════════════════════════
   return (
     <div style={{ minHeight: '100vh' }}>
+      {/* ── Paywall ── */}
+      {paywall && <PaywallModal account={account} onClose={() => setPaywall(false)} />}
+
       {/* ── Auth modal ── */}
       {authModal && (
         <AuthModal
@@ -419,6 +461,9 @@ export default function App() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: 'var(--abg)', borderRadius: '4px', border: '1px solid var(--bd)' }}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--tm)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
                 <span style={{ fontSize: '10px', color: 'var(--tm)', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</span>
+                {account?.plan === 'pro' && (
+                  <span style={{ fontSize: '8px', fontWeight: 800, letterSpacing: '.08em', padding: '2px 6px', borderRadius: '8px', background: 'rgba(22,163,74,.12)', color: 'var(--ok)', border: '1px solid rgba(22,163,74,.4)' }}>PRO</span>
+                )}
                 <span
                   title="Cloudopslag — uw gegevens zijn beschikbaar op al uw apparaten"
                   style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '.05em', color: 'var(--ok)' }}
@@ -433,6 +478,26 @@ export default function App() {
             </button>
           </div>
         </div>
+
+        {/* Free plan usage */}
+        {account?.billingEnabled && account?.plan === 'free' && (
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px',
+            padding: '7px 12px', marginBottom: '10px', borderRadius: '6px', fontSize: '10px',
+            background: atFreeLimit ? 'rgba(220,38,38,.07)' : 'var(--abg)',
+            border: `1px solid ${atFreeLimit ? 'rgba(220,38,38,.3)' : 'var(--bd)'}`,
+            color: atFreeLimit ? 'var(--dn)' : 'var(--tm)',
+          }}>
+            <span>
+              {atFreeLimit
+                ? 'Uw gratis facturen zijn gebruikt — upgrade om verder te factureren.'
+                : `Gratis plan: nog ${Math.max(0, (account.freeLimit ?? 2) - (account.invoicesCreated ?? 0))} van ${account.freeLimit ?? 2} facturen.`}
+            </span>
+            <button onClick={() => setPaywall(true)} style={{ ...btn1, padding: '4px 10px', fontSize: '9px', flexShrink: 0 }}>
+              Upgrade
+            </button>
+          </div>
+        )}
 
         {/* Step progress */}
         <div style={{ display: 'flex', gap: '3px' }}>

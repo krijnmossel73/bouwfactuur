@@ -88,8 +88,11 @@ export default function Uitleg({ onBack, onRegister, loggedIn }) {
 
         <h2 style={h2}>Uw gegevens</h2>
         <p style={p}>
-          BouwFactuur werkt met een gratis account (e-mailadres en wachtwoord,
-          of inloggen met Google). Uw bedrijfsprofiel, opdrachtgevers en
+          BouwFactuur werkt met een account (e-mailadres en wachtwoord, of
+          inloggen met Google). Een account is gratis en uw eerste twee
+          facturen zijn gratis; daarna factureert u onbeperkt met een
+          maandelijks opzegbaar Pro-abonnement (betalen via o.a. iDEAL).
+          Uw bedrijfsprofiel, opdrachtgevers en
           factuurhistorie worden veilig in de cloud bewaard en zijn alleen
           voor u toegankelijk, op al uw apparaten. In de factuurhistorie ziet
           u welke facturen openstaan en wat het uitstaande bedrag is, en kunt

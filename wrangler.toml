@@ -17,3 +17,10 @@ database_id = "291bd967-987d-4371-b3dc-9f4e3209c213"
 
 [vars]
 SUPABASE_URL = "https://mjdqxclxexyhviohomyq.supabase.co"
+# Stripe subscription price (not secret). Uncomment after creating the
+# Product + recurring Price in the Stripe dashboard:
+# STRIPE_PRICE_ID = "price_..."
+#
+# Secrets (NOT in this file — set via CLI):
+#   npx wrangler pages secret put STRIPE_SECRET_KEY --project-name bouwfactuur
+#   npx wrangler pages secret put STRIPE_WEBHOOK_SECRET --project-name bouwfactuur
