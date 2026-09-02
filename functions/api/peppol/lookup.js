@@ -13,14 +13,16 @@
 
 const PEPPOL_DIRECTORY = 'https://directory.peppol.eu';
 
+import { requireUser } from '../../../lib/auth.js';
+
 export async function onRequestGet(context) {
+  const auth = requireUser(context);
+  if (auth.err) return auth.err;
+
   const url = new URL(context.request.url);
   const kvk = url.searchParams.get('kvk');
 
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Content-Type': 'application/json',
-  };
+  const corsHeaders = { 'Content-Type': 'application/json' };
 
   if (!kvk || !/^\d{8}$/.test(kvk)) {
     return new Response(JSON.stringify({ error: 'KvK-nummer moet 8 cijfers zijn.' }), {
@@ -102,12 +104,3 @@ export async function onRequestGet(context) {
   }
 }
 
-export async function onRequestOptions() {
-  return new Response(null, {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    },
-  });
-}

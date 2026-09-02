@@ -14,15 +14,17 @@ const TEST_API_KEY = 'l7xx1f2691f2520d487b902f4e0b57a0b197';
 const TEST_URL = 'https://api.kvk.nl/test/api/v2/zoeken';
 const PROD_URL = 'https://api.kvk.nl/api/v2/zoeken';
 
+import { requireUser } from '../../lib/auth.js';
+
 export async function onRequestGet(context) {
+  const auth = requireUser(context);
+  if (auth.err) return auth.err;
+
   const url = new URL(context.request.url);
   const kvkNummer = url.searchParams.get('kvkNummer');
   const naam = url.searchParams.get('naam');
 
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Content-Type': 'application/json',
-  };
+  const corsHeaders = { 'Content-Type': 'application/json' };
 
   if (!kvkNummer && !naam) {
     return new Response(JSON.stringify({ error: 'Missing kvkNummer or naam parameter.' }), {
@@ -109,13 +111,3 @@ export async function onRequestGet(context) {
   }
 }
 
-export async function onRequestOptions() {
-  return new Response(null, {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-      'Access-Control-Max-Age': '86400',
-    },
-  });
-}

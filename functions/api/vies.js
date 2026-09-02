@@ -10,16 +10,18 @@
  *   { valid: true/false, name: "...", address: "...", requestDate: "...", error: null }
  */
 
+import { requireUser } from '../../lib/auth.js';
+
 export async function onRequestGet(context) {
+  const auth = requireUser(context);
+  if (auth.err) return auth.err;
+
   const url = new URL(context.request.url);
   const country = url.searchParams.get('country');
   const number = url.searchParams.get('number');
 
-  // CORS headers for local dev
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Content-Type': 'application/json',
-  };
+  // Same-origin only: the frontend is served from the same Pages project.
+  const corsHeaders = { 'Content-Type': 'application/json' };
 
   if (!country || !number) {
     return new Response(JSON.stringify({ error: 'Missing country or number parameter.' }), {
@@ -96,14 +98,3 @@ export async function onRequestGet(context) {
   }
 }
 
-// Handle CORS preflight
-export async function onRequestOptions() {
-  return new Response(null, {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-      'Access-Control-Max-Age': '86400',
-    },
-  });
-}

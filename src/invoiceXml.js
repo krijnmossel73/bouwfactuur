@@ -55,23 +55,42 @@ export function generateInvoiceXML({ oa, og, project, lines, totals, btwVerlegd,
     return d.toISOString().split('T')[0];
   })();
 
-  // Tax category code: AE = VAT Reverse Charge, S = Standard rate
-  const taxCategory = btwVerlegd ? 'AE' : 'S';
-  const taxRate = btwVerlegd ? '0.00' : Number(btwTarief).toFixed(2);
+  // Tax category code (UNCL5305):
+  //   AE = VAT reverse charge (BTW verlegd), rate must be 0
+  //   S  = standard/reduced rate (21% / 9%), rate must be > 0
+  //   Z  = zero-rated; 0% under category S fails EN16931 rule BR-S-05
+  const rate = Number(btwTarief) || 0;
+  const taxCategory = btwVerlegd ? 'AE' : rate > 0 ? 'S' : 'Z';
+  const taxRate = btwVerlegd ? '0.00' : rate.toFixed(2);
   const taxScheme = 'VAT';
+
+  // ISO 6523 ICD for Dutch KvK numbers (NLCIUS: PartyLegalEntity/CompanyID
+  // and EndpointID use 0106; 0190 would be OIN for government bodies)
+  const KVK_SCHEME = '0106';
+  const digits = (v) => String(v || '').replace(/\D/g, '');
 
   // Build line items XML
   const lineItemsXml = lines.map((line, idx) => {
-    const lineAmount = amount(line.bedrag);
-    const qty = line.uren || '1';
-    const price = line.tarief || lineAmount;
+    const isArbeid = line.type === 'arbeid';
+    const bedrag = parseFloat(line.bedrag) || 0;
+    const uren = parseFloat(line.uren) || 0;
+    const tarief = parseFloat(line.tarief) || 0;
+
+    // PEPPOL-EN16931-R120: line net amount must equal quantity × price.
+    // Only emit hours × rate when they actually reproduce the amount;
+    // otherwise fall back to quantity 1 at the line amount.
+    const consistent = uren > 0 && tarief > 0 && Math.abs(uren * tarief - bedrag) < 0.005;
+    const qty = consistent ? String(uren) : '1';
+    const price = consistent ? tarief : bedrag;
+    // HUR = hour (labor), C62 = unit/piece (material)
+    const unitCode = isArbeid && consistent ? 'HUR' : 'C62';
 
     return `
     <cac:InvoiceLine>
       <cbc:ID>${idx + 1}</cbc:ID>
-      <cbc:Note>${escapeXml(line.type === 'arbeid' ? 'Arbeid' : 'Materiaal')}</cbc:Note>
-      <cbc:InvoicedQuantity unitCode="HUR">${escapeXml(qty)}</cbc:InvoicedQuantity>
-      <cbc:LineExtensionAmount currencyID="EUR">${lineAmount}</cbc:LineExtensionAmount>
+      <cbc:Note>${escapeXml(isArbeid ? 'Arbeid' : 'Materiaal')}</cbc:Note>
+      <cbc:InvoicedQuantity unitCode="${unitCode}">${escapeXml(qty)}</cbc:InvoicedQuantity>
+      <cbc:LineExtensionAmount currencyID="EUR">${amount(bedrag)}</cbc:LineExtensionAmount>
       <cac:Item>
         <cbc:Description>${escapeXml(line.omschrijving || 'Bouwwerkzaamheden')}</cbc:Description>
         <cbc:Name>${escapeXml(line.omschrijving || 'Bouwwerkzaamheden')}</cbc:Name>
@@ -152,8 +171,9 @@ export function generateInvoiceXML({ oa, og, project, lines, totals, btwVerlegd,
   <!-- Supplier (Onderaannemer) -->
   <cac:AccountingSupplierParty>
     <cac:Party>
+      <cbc:EndpointID schemeID="${KVK_SCHEME}">${escapeXml(digits(oa.kvk))}</cbc:EndpointID>
       <cac:PartyIdentification>
-        <cbc:ID schemeID="KVK">${escapeXml(oa.kvk)}</cbc:ID>
+        <cbc:ID schemeID="${KVK_SCHEME}">${escapeXml(digits(oa.kvk))}</cbc:ID>
       </cac:PartyIdentification>
       <cac:PartyName>
         <cbc:Name>${escapeXml(oa.naam)}</cbc:Name>
@@ -174,7 +194,7 @@ export function generateInvoiceXML({ oa, og, project, lines, totals, btwVerlegd,
       </cac:PartyTaxScheme>
       <cac:PartyLegalEntity>
         <cbc:RegistrationName>${escapeXml(oa.naam)}</cbc:RegistrationName>
-        <cbc:CompanyID schemeID="KVK">${escapeXml(oa.kvk)}</cbc:CompanyID>
+        <cbc:CompanyID schemeID="${KVK_SCHEME}">${escapeXml(digits(oa.kvk))}</cbc:CompanyID>
       </cac:PartyLegalEntity>
     </cac:Party>
   </cac:AccountingSupplierParty>
@@ -182,8 +202,9 @@ export function generateInvoiceXML({ oa, og, project, lines, totals, btwVerlegd,
   <!-- Buyer (Opdrachtgever) -->
   <cac:AccountingCustomerParty>
     <cac:Party>
+      <cbc:EndpointID schemeID="${KVK_SCHEME}">${escapeXml(digits(og.kvk))}</cbc:EndpointID>
       <cac:PartyIdentification>
-        <cbc:ID schemeID="KVK">${escapeXml(og.kvk)}</cbc:ID>
+        <cbc:ID schemeID="${KVK_SCHEME}">${escapeXml(digits(og.kvk))}</cbc:ID>
       </cac:PartyIdentification>
       <cac:PartyName>
         <cbc:Name>${escapeXml(og.naam)}</cbc:Name>
@@ -204,7 +225,7 @@ export function generateInvoiceXML({ oa, og, project, lines, totals, btwVerlegd,
       </cac:PartyTaxScheme>
       <cac:PartyLegalEntity>
         <cbc:RegistrationName>${escapeXml(og.naam)}</cbc:RegistrationName>
-        <cbc:CompanyID schemeID="KVK">${escapeXml(og.kvk)}</cbc:CompanyID>
+        <cbc:CompanyID schemeID="${KVK_SCHEME}">${escapeXml(digits(og.kvk))}</cbc:CompanyID>
       </cac:PartyLegalEntity>
     </cac:Party>
   </cac:AccountingCustomerParty>

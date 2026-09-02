@@ -21,6 +21,8 @@
  * @param {string} kvkNummer - KvK number (8 digits)
  * @returns {Promise<{found: boolean, name?: string, error?: string}>}
  */
+import { authHeaders } from './storage.js';
+
 export async function peppolLookup(kvkNummer) {
   if (!kvkNummer || kvkNummer.replace(/\D/g, '').length !== 8) {
     return { found: false, error: 'Ongeldig KvK-nummer.' };
@@ -30,6 +32,7 @@ export async function peppolLookup(kvkNummer) {
 
   try {
     const res = await fetch(`/api/peppol/lookup?kvk=${cleaned}`, {
+      headers: await authHeaders(),
       signal: AbortSignal.timeout(10000),
     });
 
@@ -65,7 +68,7 @@ export async function peppolSend(xmlString, recipientKvk, senderKvk) {
   try {
     const res = await fetch('/api/peppol/send', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await authHeaders(),
       body: JSON.stringify({
         xml: xmlString,
         recipientKvk,

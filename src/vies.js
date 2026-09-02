@@ -28,6 +28,8 @@ const BTW_PATTERNS = {
  * Parse a BTW/VAT string into country code + number.
  * Strips spaces, dots, dashes. Returns null if unparseable.
  */
+import { authHeaders } from './storage.js';
+
 export function parseBTW(raw) {
   if (!raw || raw.length < 4) return null;
   const cleaned = raw.replace(/[\s.\-]/g, '').toUpperCase();
@@ -82,6 +84,7 @@ export async function validateVIES(btwString) {
 
   try {
     const res = await fetch(`/api/vies?country=${parsed.country}&number=${parsed.number}`, {
+      headers: await authHeaders(),
       signal: AbortSignal.timeout(10000),
     });
 

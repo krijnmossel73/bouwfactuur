@@ -11,6 +11,8 @@
 /**
  * Validate KvK number format (8 digits).
  */
+import { authHeaders } from './storage.js';
+
 export function validateKvkFormat(kvkNumber) {
   if (!kvkNumber) return { valid: false, message: 'Voer een KvK-nummer in.' };
   const cleaned = kvkNumber.replace(/[\s.\-]/g, '');
@@ -35,6 +37,7 @@ export async function searchKvK({ kvkNummer, naam }) {
 
   try {
     const res = await fetch(`/api/kvk?${params.toString()}`, {
+      headers: await authHeaders(),
       signal: AbortSignal.timeout(10000),
     });
 

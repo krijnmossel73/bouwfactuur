@@ -72,11 +72,15 @@ const PROVIDERS = {
   },
 };
 
+import { requireUser } from '../../../lib/auth.js';
+
 export async function onRequestPost(context) {
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Content-Type': 'application/json',
-  };
+  // Sending via the Access Point costs money and goes out under our
+  // PEPPOL_SENDER_ID, so anonymous callers are refused outright.
+  const auth = requireUser(context);
+  if (auth.err) return auth.err;
+
+  const corsHeaders = { 'Content-Type': 'application/json' };
 
   // Check for API key
   const apiKey = context.env?.PEPPOL_API_KEY;
@@ -177,12 +181,3 @@ export async function onRequestPost(context) {
   }
 }
 
-export async function onRequestOptions() {
-  return new Response(null, {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    },
-  });
-}
