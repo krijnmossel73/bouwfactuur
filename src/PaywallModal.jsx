@@ -32,10 +32,10 @@ export default function PaywallModal({ account, onClose }) {
       onClick={(e) => { if (e.target === e.currentTarget && !busy) onClose?.(); }}
     >
       <div style={{ background: 'var(--bg)', border: '1px solid var(--bd)', borderRadius: '8px', padding: '24px', width: '100%', maxWidth: '400px' }}>
-        <div style={{ fontSize: '15px', fontWeight: 800, letterSpacing: '-.01em', marginBottom: '8px' }}>
+        <div style={{ fontSize: '17px', fontWeight: 800, letterSpacing: '-.01em', marginBottom: '8px' }}>
           Uw {freeLimit} gratis facturen zijn gebruikt
         </div>
-        <p style={{ fontSize: '12px', color: 'var(--tm)', lineHeight: 1.7, margin: '0 0 14px' }}>
+        <p style={{ fontSize: '14px', color: 'var(--tm)', lineHeight: 1.7, margin: '0 0 14px' }}>
           Met <strong style={{ color: 'var(--tx)' }}>BouwFactuur Pro</strong> maakt u onbeperkt
           facturen, inclusief de compliance-controle, G-rekening splitsing en
           UBL/Peppol-export. {priceLine}
@@ -43,14 +43,14 @@ export default function PaywallModal({ account, onClose }) {
 
         <ul style={{ margin: '0 0 16px', padding: 0, listStyle: 'none' }}>
           {['Onbeperkt facturen maken', 'Veilig betalen via iDEAL of kaart', 'Op elk moment opzegbaar via uw accountportaal'].map((t) => (
-            <li key={t} style={{ fontSize: '11px', color: 'var(--tx)', lineHeight: 1.9 }}>
+            <li key={t} style={{ fontSize: '13px', color: 'var(--tx)', lineHeight: 1.9 }}>
               <span style={{ color: 'var(--ok)', fontWeight: 700 }}>✓</span> {t}
             </li>
           ))}
         </ul>
 
         {error && (
-          <div style={{ padding: '8px 12px', borderRadius: '5px', fontSize: '11px', marginBottom: '12px', background: 'rgba(220,38,38,.08)', border: '1px solid rgba(220,38,38,.3)', color: 'var(--dn)' }}>
+          <div style={{ padding: '8px 12px', borderRadius: '5px', fontSize: '13px', marginBottom: '12px', background: 'rgba(220,38,38,.08)', border: '1px solid rgba(220,38,38,.3)', color: 'var(--dn)' }}>
             Er ging iets mis bij het starten van de betaling. Probeer het opnieuw.
           </div>
         )}

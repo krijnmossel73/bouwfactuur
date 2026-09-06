@@ -67,7 +67,7 @@ export default function ViesButton({ btwValue, onResult }) {
             border: `1px solid ${c.color}40`,
             borderRadius: '4px',
             padding: '4px 10px',
-            fontSize: '9px',
+            fontSize: '11px',
             fontWeight: 600,
             fontFamily: 'var(--fn)',
             letterSpacing: '0.08em',
@@ -81,7 +81,7 @@ export default function ViesButton({ btwValue, onResult }) {
         </button>
         {status !== 'idle' && status !== 'loading' && (
           <span style={{
-            fontSize: '10px',
+            fontSize: '12px',
             color: c.color,
             display: 'inline-flex',
             alignItems: 'center',
@@ -93,7 +93,7 @@ export default function ViesButton({ btwValue, onResult }) {
       </div>
       {detail && (
         <div style={{
-          fontSize: '10px',
+          fontSize: '12px',
           color: c.color,
           marginTop: '3px',
           lineHeight: 1.4,

@@ -358,8 +358,8 @@ export default function App() {
   if (loadError) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '20px', textAlign: 'center' }}>
-        <div style={{ fontSize: '14px', fontWeight: 700 }}>Gegevens konden niet worden geladen</div>
-        <div style={{ fontSize: '11px', color: 'var(--tm)', maxWidth: '320px', lineHeight: 1.6 }}>
+        <div style={{ fontSize: '16px', fontWeight: 700 }}>Gegevens konden niet worden geladen</div>
+        <div style={{ fontSize: '13px', color: 'var(--tm)', maxWidth: '320px', lineHeight: 1.6 }}>
           Er is een probleem met de verbinding naar de cloudopslag. Controleer uw internetverbinding en probeer het opnieuw.
         </div>
         <button
@@ -371,7 +371,7 @@ export default function App() {
         >
           Opnieuw proberen
         </button>
-        <button style={{ ...btn2, padding: '7px 16px', fontSize: '10px' }} onClick={logout}>Uitloggen</button>
+        <button style={{ ...btn2, padding: '7px 16px', fontSize: '12px' }} onClick={logout}>Uitloggen</button>
       </div>
     );
   }
@@ -432,7 +432,7 @@ export default function App() {
         <div style={{
           position: 'fixed', top: '12px', left: '50%', transform: 'translateX(-50%)',
           background: 'var(--ac)', color: '#FFFFFF', padding: '10px 18px', borderRadius: '6px',
-          fontSize: '11px', fontWeight: 700, zIndex: 999, letterSpacing: '.04em',
+          fontSize: '13px', fontWeight: 700, zIndex: 999, letterSpacing: '.04em',
           boxShadow: '0 4px 12px rgba(217,119,6,.2)', animation: 'fadeIn .2s ease',
         }}>
           {toast}
@@ -452,7 +452,7 @@ export default function App() {
             }}>
               <LogoIcon />
             </div>
-            <div style={{ fontSize: '16px', fontWeight: 700, letterSpacing: '.05em', color: 'var(--ac)' }}>
+            <div style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '.05em', color: 'var(--ac)' }}>
               BOUWFACTUUR
             </div>
           </div>
@@ -460,20 +460,20 @@ export default function App() {
             {user && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: 'var(--abg)', borderRadius: '4px', border: '1px solid var(--bd)' }}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--tm)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
-                <span style={{ fontSize: '10px', color: 'var(--tm)', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</span>
+                <span style={{ fontSize: '12px', color: 'var(--tm)', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</span>
                 {account?.plan === 'pro' && (
-                  <span style={{ fontSize: '8px', fontWeight: 800, letterSpacing: '.08em', padding: '2px 6px', borderRadius: '8px', background: 'rgba(22,163,74,.12)', color: 'var(--ok)', border: '1px solid rgba(22,163,74,.4)' }}>PRO</span>
+                  <span style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '.08em', padding: '2px 6px', borderRadius: '8px', background: 'rgba(22,163,74,.12)', color: 'var(--ok)', border: '1px solid rgba(22,163,74,.4)' }}>PRO</span>
                 )}
                 <span
                   title="Cloudopslag — uw gegevens zijn beschikbaar op al uw apparaten"
-                  style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '.05em', color: 'var(--ok)' }}
+                  style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '.05em', color: 'var(--ok)' }}
                 >
                   ☁
                 </span>
-                <button onClick={logout} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '9px', color: 'var(--dn)', marginLeft: '2px', padding: 0 }} title="Uitloggen">✕</button>
+                <button onClick={logout} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', color: 'var(--dn)', marginLeft: '2px', padding: 0 }} title="Uitloggen">✕</button>
               </div>
             )}
-            <button onClick={() => setView('history')} style={{ ...btn2, padding: '6px 10px', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <button onClick={() => setView('history')} style={{ ...btn2, padding: '6px 10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '5px' }}>
               <ListIcon /> {invoices.length}
             </button>
           </div>
@@ -483,7 +483,7 @@ export default function App() {
         {account?.billingEnabled && account?.plan === 'free' && (
           <div style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px',
-            padding: '7px 12px', marginBottom: '10px', borderRadius: '6px', fontSize: '10px',
+            padding: '7px 12px', marginBottom: '10px', borderRadius: '6px', fontSize: '12px',
             background: atFreeLimit ? 'rgba(220,38,38,.07)' : 'var(--abg)',
             border: `1px solid ${atFreeLimit ? 'rgba(220,38,38,.3)' : 'var(--bd)'}`,
             color: atFreeLimit ? 'var(--dn)' : 'var(--tm)',
@@ -493,7 +493,7 @@ export default function App() {
                 ? 'Uw gratis facturen zijn gebruikt — upgrade om verder te factureren.'
                 : `Gratis plan: nog ${Math.max(0, (account.freeLimit ?? 2) - (account.invoicesCreated ?? 0))} van ${account.freeLimit ?? 2} facturen.`}
             </span>
-            <button onClick={() => setPaywall(true)} style={{ ...btn1, padding: '4px 10px', fontSize: '9px', flexShrink: 0 }}>
+            <button onClick={() => setPaywall(true)} style={{ ...btn1, padding: '4px 10px', fontSize: '11px', flexShrink: 0 }}>
               Upgrade
             </button>
           </div>
@@ -512,7 +512,7 @@ export default function App() {
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '5px' }}>
           {STEPS.map((s, i) => (
             <span key={i} onClick={() => setStep(i)} style={{
-              fontSize: '9px', letterSpacing: '.08em', textTransform: 'uppercase',
+              fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase',
               color: i === step ? 'var(--ac)' : 'var(--tm)',
               fontWeight: i === step ? 600 : 400, cursor: 'pointer',
             }}>
@@ -566,7 +566,7 @@ export default function App() {
                 <span style={lbl}>Opgeslagen klanten — klik om te laden</span>
                 <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginTop: '5px' }}>
                   {savedClients.map((c, i) => (
-                    <button key={i} onClick={() => loadClient(c)} style={{ ...btn2, padding: '5px 10px', fontSize: '10px' }}>{c.naam}</button>
+                    <button key={i} onClick={() => loadClient(c)} style={{ ...btn2, padding: '5px 10px', fontSize: '12px' }}>{c.naam}</button>
                   ))}
                 </div>
               </div>
@@ -601,7 +601,7 @@ export default function App() {
             <div style={{ marginTop: '16px' }}>
               <label style={chk} onClick={() => setBtwVerlegd(!btwVerlegd)}>
                 <input type="checkbox" checked={btwVerlegd} readOnly />
-                <span style={{ fontSize: '12px', fontWeight: 500 }}>BTW verlegd (verleggingsregeling bouw)</span>
+                <span style={{ fontSize: '14px', fontWeight: 500 }}>BTW verlegd (verleggingsregeling bouw)</span>
               </label>
               {btwVerlegd && <div style={nfo}>BTW verlegd naar opdrachtgever conform art. 12 lid 5 Wet OB 1968.</div>}
               {!btwVerlegd && (
@@ -616,14 +616,14 @@ export default function App() {
               )}
               <label style={{ ...chk, marginTop: '10px' }} onClick={() => setUseGrek(!useGrek)}>
                 <input type="checkbox" checked={useGrek} readOnly />
-                <span style={{ fontSize: '12px', fontWeight: 500 }}>G-rekening splitsing</span>
+                <span style={{ fontSize: '14px', fontWeight: 500 }}>G-rekening splitsing</span>
               </label>
               {useGrek && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
                   <span style={{ ...lbl, whiteSpace: 'nowrap', marginBottom: 0 }}>G-rek %</span>
                   <input type="number" style={{ ...inp, width: '80px' }} value={gPerc}
                     onChange={(e) => setCustomGPerc(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))} />
-                  <span style={{ fontSize: '10px', color: 'var(--tm)' }}>over loonkosten</span>
+                  <span style={{ fontSize: '12px', color: 'var(--tm)' }}>over loonkosten</span>
                 </div>
               )}
             </div>
@@ -639,14 +639,14 @@ export default function App() {
               <div><span style={lbl}>Factuurdatum</span><input type="date" style={inp} value={project.factuurdatum} onChange={(e) => setProject({ ...project, factuurdatum: e.target.value })} /></div>
               <div><span style={lbl}>Contractnummer</span><input style={inp} value={project.contractNummer} onChange={(e) => setProject({ ...project, contractNummer: e.target.value })} placeholder="CTR-2026-001" /></div>
               <div><span style={lbl}>Betaaltermijn (dgn)</span><input type="number" style={inp} value={project.betaaltermijn} onChange={(e) => setProject({ ...project, betaaltermijn: parseInt(e.target.value) || 30 })} />
-                {verval && <span style={{ fontSize: '10px', color: 'var(--tm)', marginTop: '3px', display: 'block' }}>Vervaldatum: {fmtDate(verval)}</span>}
+                {verval && <span style={{ fontSize: '12px', color: 'var(--tm)', marginTop: '3px', display: 'block' }}>Vervaldatum: {fmtDate(verval)}</span>}
               </div>
               <div style={full}><span style={lbl}>Projectnaam</span><input style={inp} value={project.projectNaam} onChange={(e) => setProject({ ...project, projectNaam: e.target.value })} placeholder="Nieuwbouw appartementen Zuidas Blok C" /></div>
             </div>
 
             {/* Line items */}
             <div style={{ marginTop: '18px' }}>
-              <div style={{ ...sec, fontSize: '11px' }}>Regels</div>
+              <div style={{ ...sec, fontSize: '13px' }}>Regels</div>
               <div style={{ overflowX: 'auto' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 78px 66px 66px 86px 30px', gap: '5px', padding: '5px 0', borderBottom: '1px solid var(--bd)', marginBottom: '5px', minWidth: '480px' }}>
                   <span style={lbl}>Omschrijving</span><span style={lbl}>Type</span><span style={lbl}>Uren</span><span style={lbl}>Tarief</span><span style={lbl}>Bedrag</span><span />
@@ -654,7 +654,7 @@ export default function App() {
                 {lines.map((l, i) => (
                   <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 78px 66px 66px 86px 30px', gap: '5px', alignItems: 'center', marginBottom: '4px', minWidth: '480px' }}>
                     <input style={sinp} value={l.omschrijving} onChange={(e) => updateLine(i, 'omschrijving', e.target.value)} placeholder="Metselwerk verd. 3" />
-                    <select style={{ ...sel, padding: '8px 5px', fontSize: '10px', paddingRight: '20px', backgroundPosition: 'right 4px center' }} value={l.type} onChange={(e) => updateLine(i, 'type', e.target.value)}>
+                    <select style={{ ...sel, padding: '8px 5px', fontSize: '12px', paddingRight: '20px', backgroundPosition: 'right 4px center' }} value={l.type} onChange={(e) => updateLine(i, 'type', e.target.value)}>
                       <option value="arbeid">Arbeid</option><option value="materiaal">Mat.</option>
                     </select>
                     <input type="number" style={sinp} value={l.uren} onChange={(e) => updateLine(i, 'uren', e.target.value)} placeholder="0" />
@@ -664,14 +664,14 @@ export default function App() {
                   </div>
                 ))}
               </div>
-              <button onClick={addLine} style={{ ...btn2, padding: '6px 12px', fontSize: '10px', marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <button onClick={addLine} style={{ ...btn2, padding: '6px 12px', fontSize: '12px', marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <PlusIcon /> Regel
               </button>
             </div>
 
             {/* Totals card */}
             <div style={{ ...crd, marginTop: '16px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '3px 18px', fontSize: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '3px 18px', fontSize: '14px' }}>
                 <span style={{ color: 'var(--tm)' }}>Arbeid:</span><span style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(totals.arbeid)}</span>
                 <span style={{ color: 'var(--tm)' }}>Materiaal:</span><span style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(totals.materiaal)}</span>
                 <span style={{ color: 'var(--tm)' }}>Subtotaal excl. BTW:</span><span style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(totals.sub)}</span>
@@ -680,14 +680,14 @@ export default function App() {
                   {btwVerlegd ? '€ 0,00 (verlegd)' : fmt(totals.btwB)}
                 </span>
                 <div style={{ gridColumn: '1/-1', borderTop: '1px solid var(--bd)', margin: '2px 0' }} />
-                <span style={{ fontWeight: 700, fontSize: '14px' }}>Totaal:</span>
-                <span style={{ textAlign: 'right', fontWeight: 700, fontSize: '14px', color: 'var(--ac)' }}>{fmt(totals.totIncl)}</span>
+                <span style={{ fontWeight: 700, fontSize: '16px' }}>Totaal:</span>
+                <span style={{ textAlign: 'right', fontWeight: 700, fontSize: '16px', color: 'var(--ac)' }}>{fmt(totals.totIncl)}</span>
                 {useGrek && <>
                   <div style={{ gridColumn: '1/-1', borderTop: '1px dashed var(--bd)', margin: '2px 0' }} />
-                  <span style={{ color: 'var(--tm)', fontSize: '11px' }}>→ G-rek ({gPerc}% × arbeid):</span>
-                  <span style={{ textAlign: 'right', fontSize: '11px', color: 'var(--ac)' }}>{fmt(totals.gSplit)}</span>
-                  <span style={{ color: 'var(--tm)', fontSize: '11px' }}>→ Normaal:</span>
-                  <span style={{ textAlign: 'right', fontSize: '11px' }}>{fmt(totals.normB)}</span>
+                  <span style={{ color: 'var(--tm)', fontSize: '13px' }}>→ G-rek ({gPerc}% × arbeid):</span>
+                  <span style={{ textAlign: 'right', fontSize: '13px', color: 'var(--ac)' }}>{fmt(totals.gSplit)}</span>
+                  <span style={{ color: 'var(--tm)', fontSize: '13px' }}>→ Normaal:</span>
+                  <span style={{ textAlign: 'right', fontSize: '13px' }}>{fmt(totals.normB)}</span>
                 </>}
               </div>
             </div>
@@ -704,90 +704,90 @@ export default function App() {
               <div style={{ marginBottom: '14px' }}>
                 {compliance.errors.length > 0 && (
                   <div style={{ padding: '10px 14px', background: 'rgba(220,38,38,.08)', border: '1px solid rgba(220,38,38,.3)', borderRadius: '6px', marginBottom: '8px' }}>
-                    <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--dn)', marginBottom: '5px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--dn)', marginBottom: '5px' }}>
                       Factuur niet compleet ({compliance.errors.length})
                     </div>
                     {compliance.errors.map((e, i) => (
-                      <div key={i} style={{ fontSize: '11px', color: 'var(--tx)', lineHeight: 1.7 }}>• {e}</div>
+                      <div key={i} style={{ fontSize: '13px', color: 'var(--tx)', lineHeight: 1.7 }}>• {e}</div>
                     ))}
                   </div>
                 )}
                 {compliance.warnings.length > 0 && (
                   <div style={{ padding: '10px 14px', background: 'var(--abg)', border: '1px solid rgba(245,158,11,.3)', borderRadius: '6px' }}>
-                    <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ac)', marginBottom: '5px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ac)', marginBottom: '5px' }}>
                       Aanbevolen ({compliance.warnings.length})
                     </div>
                     {compliance.warnings.map((w, i) => (
-                      <div key={i} style={{ fontSize: '11px', color: 'var(--tm)', lineHeight: 1.7 }}>• {w}</div>
+                      <div key={i} style={{ fontSize: '13px', color: 'var(--tm)', lineHeight: 1.7 }}>• {w}</div>
                     ))}
                   </div>
                 )}
               </div>
             ) : (
-              <div style={{ padding: '10px 14px', background: 'rgba(22,163,74,.08)', border: '1px solid rgba(22,163,74,.3)', borderRadius: '6px', marginBottom: '14px', fontSize: '11px', color: 'var(--ok)', fontWeight: 600 }}>
+              <div style={{ padding: '10px 14px', background: 'rgba(22,163,74,.08)', border: '1px solid rgba(22,163,74,.3)', borderRadius: '6px', marginBottom: '14px', fontSize: '13px', color: 'var(--ok)', fontWeight: 600 }}>
                 ✓ Voldoet aan factuurvereisten Belastingdienst{useGrek ? ' en Wka' : ''}
               </div>
             )}
 
             {/* Compact in-app preview */}
-            <div style={{ background: '#FEFDFB', borderRadius: '8px', padding: '18px', color: '#1A1A1A', fontFamily: "Georgia,serif", fontSize: '11px', lineHeight: 1.5, boxShadow: '0 2px 12px rgba(0,0,0,.1)', border: '1px solid #E5E2DB' }}>
+            <div style={{ background: '#FEFDFB', borderRadius: '8px', padding: '18px', color: '#1A1A1A', fontFamily: "Georgia,serif", fontSize: '13px', lineHeight: 1.5, boxShadow: '0 2px 12px rgba(0,0,0,.1)', border: '1px solid #E5E2DB' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '10px', borderBottom: '2px solid #D97706', marginBottom: '14px' }}>
                 <div>
-                  <div style={{ fontSize: '17px', fontWeight: 700, color: '#D97706', fontFamily: 'var(--fn)', letterSpacing: '.05em' }}>FACTUUR</div>
-                  <div style={{ fontSize: '10px', color: '#6B7280', marginTop: '3px' }}>Nr. {project.factuurnummer} | {fmtDate(project.factuurdatum)}</div>
+                  <div style={{ fontSize: '19px', fontWeight: 700, color: '#D97706', fontFamily: 'var(--fn)', letterSpacing: '.05em' }}>FACTUUR</div>
+                  <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '3px' }}>Nr. {project.factuurnummer} | {fmtDate(project.factuurdatum)}</div>
                 </div>
-                <div style={{ textAlign: 'right', fontSize: '10px' }}>
+                <div style={{ textAlign: 'right', fontSize: '12px' }}>
                   <div style={{ fontWeight: 700 }}>{oa.naam}</div><div>{oa.postcode} {oa.plaats}</div>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '16px', marginBottom: '10px', fontSize: '10px' }}>
+              <div style={{ display: 'flex', gap: '16px', marginBottom: '10px', fontSize: '12px' }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '8px', textTransform: 'uppercase', letterSpacing: '.12em', color: '#6B7280', fontFamily: 'var(--fn)', fontWeight: 600, marginBottom: '2px' }}>Aan</div>
+                  <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '.12em', color: '#6B7280', fontFamily: 'var(--fn)', fontWeight: 600, marginBottom: '2px' }}>Aan</div>
                   <div style={{ fontWeight: 600 }}>{og.naam || '—'}</div>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '8px', textTransform: 'uppercase', letterSpacing: '.12em', color: '#6B7280', fontFamily: 'var(--fn)', fontWeight: 600, marginBottom: '2px' }}>Project</div>
+                  <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '.12em', color: '#6B7280', fontFamily: 'var(--fn)', fontWeight: 600, marginBottom: '2px' }}>Project</div>
                   <div style={{ fontWeight: 600 }}>{project.projectNaam || '—'}</div>
                 </div>
               </div>
 
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                 <thead><tr>
-                  <th style={{ textAlign: 'left', padding: '4px', borderBottom: '1.5px solid #E5E2DB', fontSize: '8px', letterSpacing: '.1em', textTransform: 'uppercase', fontFamily: 'var(--fn)', color: '#6B7280' }}>Omschrijving</th>
-                  <th style={{ textAlign: 'right', padding: '4px', borderBottom: '1.5px solid #E5E2DB', fontSize: '8px', letterSpacing: '.1em', textTransform: 'uppercase', fontFamily: 'var(--fn)', color: '#6B7280' }}>Bedrag</th>
+                  <th style={{ textAlign: 'left', padding: '4px', borderBottom: '1.5px solid #E5E2DB', fontSize: '10px', letterSpacing: '.1em', textTransform: 'uppercase', fontFamily: 'var(--fn)', color: '#6B7280' }}>Omschrijving</th>
+                  <th style={{ textAlign: 'right', padding: '4px', borderBottom: '1.5px solid #E5E2DB', fontSize: '10px', letterSpacing: '.1em', textTransform: 'uppercase', fontFamily: 'var(--fn)', color: '#6B7280' }}>Bedrag</th>
                 </tr></thead>
                 <tbody>
                   {lines.map((l, i) => (
                     <tr key={i}>
-                      <td style={{ padding: '3px 4px', borderBottom: '1px solid #E5E2DB' }}>{l.omschrijving || '—'} <span style={{ fontSize: '8px', color: '#9CA3AF' }}>({l.type})</span></td>
+                      <td style={{ padding: '3px 4px', borderBottom: '1px solid #E5E2DB' }}>{l.omschrijving || '—'} <span style={{ fontSize: '10px', color: '#9CA3AF' }}>({l.type})</span></td>
                       <td style={{ padding: '3px 4px', borderBottom: '1px solid #E5E2DB', textAlign: 'right', fontFamily: 'var(--fn)' }}>{l.bedrag ? fmt(parseFloat(l.bedrag)) : '—'}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px', fontSize: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px', fontSize: '12px' }}>
                 <div style={{ width: '180px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Subtotaal:</span><span style={{ fontFamily: 'var(--fn)' }}>{fmt(totals.sub)}</span></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: btwVerlegd ? '#D97706' : '#1A1A1A' }}><span>BTW{btwVerlegd ? ' verlegd' : ` ${btwTarief}%`}:</span><span style={{ fontFamily: 'var(--fn)' }}>{btwVerlegd ? '€ 0,00' : fmt(totals.btwB)}</span></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '13px', marginTop: '3px', paddingTop: '3px', borderTop: '2px solid #D97706' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '15px', marginTop: '3px', paddingTop: '3px', borderTop: '2px solid #D97706' }}>
                     <span>Totaal:</span><span style={{ fontFamily: 'var(--fn)' }}>{fmt(totals.totIncl)}</span>
                   </div>
                 </div>
               </div>
 
-              {btwVerlegd && <div style={{ background: '#D97706', color: '#fff', padding: '5px 8px', borderRadius: '3px', fontSize: '9px', fontFamily: 'var(--fn)', fontWeight: 700, textAlign: 'center', marginTop: '10px' }}>BTW VERLEGD — Art. 12 lid 5 Wet OB 1968</div>}
+              {btwVerlegd && <div style={{ background: '#D97706', color: '#fff', padding: '5px 8px', borderRadius: '3px', fontSize: '11px', fontFamily: 'var(--fn)', fontWeight: 700, textAlign: 'center', marginTop: '10px' }}>BTW VERLEGD — Art. 12 lid 5 Wet OB 1968</div>}
 
               {useGrek && (
                 <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                   <div style={{ flex: 1, padding: '7px 10px', background: '#FEF3C7', borderRadius: '4px' }}>
-                    <div style={{ fontSize: '8px', textTransform: 'uppercase', letterSpacing: '.1em', color: '#92400E', fontFamily: 'var(--fn)', fontWeight: 600 }}>G-rekening</div>
-                    <div style={{ fontWeight: 700, color: '#92400E', fontFamily: 'var(--fn)', marginTop: '2px', fontSize: '13px' }}>{fmt(totals.gSplit)}</div>
+                    <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '.1em', color: '#92400E', fontFamily: 'var(--fn)', fontWeight: 600 }}>G-rekening</div>
+                    <div style={{ fontWeight: 700, color: '#92400E', fontFamily: 'var(--fn)', marginTop: '2px', fontSize: '15px' }}>{fmt(totals.gSplit)}</div>
                   </div>
                   <div style={{ flex: 1, padding: '7px 10px', background: '#F0FDF4', borderRadius: '4px' }}>
-                    <div style={{ fontSize: '8px', textTransform: 'uppercase', letterSpacing: '.1em', color: '#166534', fontFamily: 'var(--fn)', fontWeight: 600 }}>Normaal</div>
-                    <div style={{ fontWeight: 700, color: '#166534', fontFamily: 'var(--fn)', marginTop: '2px', fontSize: '13px' }}>{fmt(totals.normB)}</div>
+                    <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '.1em', color: '#166534', fontFamily: 'var(--fn)', fontWeight: 600 }}>Normaal</div>
+                    <div style={{ fontWeight: 700, color: '#166534', fontFamily: 'var(--fn)', marginTop: '2px', fontSize: '15px' }}>{fmt(totals.normB)}</div>
                   </div>
                 </div>
               )}

@@ -5,7 +5,7 @@
 
 export const inp = {
   background: 'var(--sf)', border: '1px solid var(--bd)', borderRadius: '6px',
-  padding: '10px 12px', color: 'var(--tx)', fontSize: '13px',
+  padding: '10px 12px', color: 'var(--tx)', fontSize: '15px',
   fontFamily: 'var(--fn)', outline: 'none', width: '100%', boxSizing: 'border-box',
 };
 
@@ -16,13 +16,13 @@ export const sel = {
 };
 
 export const lbl = {
-  fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase',
+  fontSize: '12px', letterSpacing: '0.1em', textTransform: 'uppercase',
   color: 'var(--tm)', fontWeight: '500', display: 'block', marginBottom: '3px',
 };
 
 export const btn1 = {
   background: 'var(--ac)', color: '#FFFFFF', border: 'none', borderRadius: '6px',
-  padding: '11px 20px', fontSize: '11px', fontWeight: '700', fontFamily: 'var(--fn)',
+  padding: '11px 20px', fontSize: '13px', fontWeight: '700', fontFamily: 'var(--fn)',
   letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer',
 };
 
@@ -31,7 +31,7 @@ export const btn2 = {
 };
 
 export const sec = {
-  fontSize: '12px', fontWeight: '600', letterSpacing: '0.1em', textTransform: 'uppercase',
+  fontSize: '14px', fontWeight: '600', letterSpacing: '0.1em', textTransform: 'uppercase',
   color: 'var(--ac)', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px',
 };
 
@@ -50,8 +50,8 @@ export const chk = {
 
 export const nfo = {
   padding: '10px 14px', background: 'var(--abg)', borderRadius: '6px',
-  border: '1px solid rgba(245,158,11,0.2)', fontSize: '11px',
+  border: '1px solid rgba(245,158,11,0.2)', fontSize: '13px',
   color: 'var(--tm)', lineHeight: 1.6,
 };
 
-export const sinp = { ...inp, padding: '8px 10px', fontSize: '12px' };
+export const sinp = { ...inp, padding: '8px 10px', fontSize: '14px' };

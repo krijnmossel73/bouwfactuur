@@ -5,23 +5,23 @@ import { btn1, btn2 } from './styles.js';
  * #/uitleg for both visitors and logged-in users.
  */
 export default function Uitleg({ onBack, onRegister, loggedIn }) {
-  const h2 = { fontSize: '14px', fontWeight: 700, margin: '28px 0 8px', letterSpacing: '-.01em' };
-  const p = { fontSize: '12px', color: 'var(--tx)', lineHeight: 1.75, margin: '0 0 10px' };
-  const note = { fontSize: '11px', color: 'var(--tm)', lineHeight: 1.7 };
+  const h2 = { fontSize: '16px', fontWeight: 700, margin: '28px 0 8px', letterSpacing: '-.01em' };
+  const p = { fontSize: '14px', color: 'var(--tx)', lineHeight: 1.75, margin: '0 0 10px' };
+  const note = { fontSize: '13px', color: 'var(--tm)', lineHeight: 1.7 };
 
   return (
     <div style={{ minHeight: '100vh' }}>
       <div style={{ borderBottom: '1px solid var(--bd)', padding: '14px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontWeight: 800, fontSize: '15px', letterSpacing: '-.01em' }}>
+        <span style={{ fontWeight: 800, fontSize: '17px', letterSpacing: '-.01em' }}>
           Bouw<span style={{ color: 'var(--ac)' }}>Factuur</span>
         </span>
-        <button onClick={onBack} style={{ ...btn2, padding: '7px 14px', fontSize: '11px' }}>
+        <button onClick={onBack} style={{ ...btn2, padding: '7px 14px', fontSize: '13px' }}>
           {loggedIn ? '← Terug naar de app' : '← Terug'}
         </button>
       </div>
 
       <div style={{ maxWidth: '680px', margin: '0 auto', padding: '32px 24px 60px' }}>
-        <h1 style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '-.02em', margin: '0 0 10px' }}>
+        <h1 style={{ fontSize: '24px', fontWeight: 800, letterSpacing: '-.02em', margin: '0 0 10px' }}>
           Hoe werkt BouwFactuur?
         </h1>
         <p style={p}>
@@ -108,7 +108,7 @@ export default function Uitleg({ onBack, onRegister, loggedIn }) {
 
         {!loggedIn && (
           <div style={{ marginTop: '28px', textAlign: 'center' }}>
-            <button onClick={onRegister} style={{ ...btn1, padding: '11px 26px', fontSize: '12px' }}>
+            <button onClick={onRegister} style={{ ...btn1, padding: '11px 26px', fontSize: '14px' }}>
               Gratis account aanmaken
             </button>
           </div>

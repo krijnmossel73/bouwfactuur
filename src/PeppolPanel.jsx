@@ -94,7 +94,7 @@ export default function PeppolPanel({ recipientKvk, recipientName, senderKvk, xm
           <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
         </svg>
         <span style={{
-          fontSize: '11px', fontWeight: 600, letterSpacing: '0.1em',
+          fontSize: '13px', fontWeight: 600, letterSpacing: '0.1em',
           textTransform: 'uppercase', color: c.accent,
         }}>
           Peppol e-Invoicing
@@ -104,14 +104,14 @@ export default function PeppolPanel({ recipientKvk, recipientName, senderKvk, xm
       {/* Lookup section */}
       {lookupStatus === 'idle' && (
         <div>
-          <div style={{ fontSize: '11px', color: 'var(--tm)', marginBottom: '8px', lineHeight: 1.5 }}>
+          <div style={{ fontSize: '13px', color: 'var(--tm)', marginBottom: '8px', lineHeight: 1.5 }}>
             Controleer of {recipientName || 'de opdrachtgever'} facturen kan ontvangen via het Peppol netwerk.
           </div>
           <button
             onClick={doLookup}
             style={{
               background: 'var(--ac)', color: '#fff', border: 'none',
-              borderRadius: '5px', padding: '8px 16px', fontSize: '11px',
+              borderRadius: '5px', padding: '8px 16px', fontSize: '13px',
               fontWeight: 600, fontFamily: 'var(--fn)', cursor: 'pointer',
               letterSpacing: '0.06em',
             }}
@@ -122,17 +122,17 @@ export default function PeppolPanel({ recipientKvk, recipientName, senderKvk, xm
       )}
 
       {lookupStatus === 'loading' && (
-        <div style={{ fontSize: '11px', color: 'var(--ac)' }}>
+        <div style={{ fontSize: '13px', color: 'var(--ac)' }}>
           ⟳ Zoeken in Peppol Directory...
         </div>
       )}
 
       {lookupStatus === 'found' && (
         <div>
-          <div style={{ fontSize: '12px', color: '#16A34A', fontWeight: 600, marginBottom: '4px' }}>
+          <div style={{ fontSize: '14px', color: '#16A34A', fontWeight: 600, marginBottom: '4px' }}>
             ● Geregistreerd op Peppol
           </div>
-          <div style={{ fontSize: '10px', color: '#166534', lineHeight: 1.5 }}>
+          <div style={{ fontSize: '12px', color: '#166534', lineHeight: 1.5 }}>
             {lookupData?.name && <div>Naam: {lookupData.name}</div>}
             <div>Peppol ID: {lookupData?.participantId}</div>
             {lookupData?.supportsInvoice && <div>Facturen ontvangen: ✓ ondersteund</div>}
@@ -145,7 +145,7 @@ export default function PeppolPanel({ recipientKvk, recipientName, senderKvk, xm
               style={{
                 marginTop: '10px',
                 background: '#16A34A', color: '#fff', border: 'none',
-                borderRadius: '5px', padding: '8px 16px', fontSize: '11px',
+                borderRadius: '5px', padding: '8px 16px', fontSize: '13px',
                 fontWeight: 600, fontFamily: 'var(--fn)', cursor: 'pointer',
                 letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: '6px',
               }}
@@ -158,7 +158,7 @@ export default function PeppolPanel({ recipientKvk, recipientName, senderKvk, xm
           )}
 
           {sendStatus === 'loading' && (
-            <div style={{ marginTop: '10px', fontSize: '11px', color: 'var(--ac)' }}>
+            <div style={{ marginTop: '10px', fontSize: '13px', color: 'var(--ac)' }}>
               ⟳ Factuur verzenden via Peppol...
             </div>
           )}
@@ -166,7 +166,7 @@ export default function PeppolPanel({ recipientKvk, recipientName, senderKvk, xm
           {sendStatus === 'sent' && (
             <div style={{
               marginTop: '10px', padding: '8px 12px', background: '#DCFCE7',
-              borderRadius: '4px', fontSize: '11px', color: '#166534',
+              borderRadius: '4px', fontSize: '13px', color: '#166534',
             }}>
               ✓ Factuur verzonden via Peppol
               {sendResult?.messageId && <span> (ref: {sendResult.messageId})</span>}
@@ -176,13 +176,13 @@ export default function PeppolPanel({ recipientKvk, recipientName, senderKvk, xm
           {sendStatus === 'needsSetup' && (
             <div style={{
               marginTop: '10px', padding: '10px 12px', background: '#FFF7ED',
-              borderRadius: '4px', fontSize: '11px', color: '#9A3412', lineHeight: 1.5,
+              borderRadius: '4px', fontSize: '13px', color: '#9A3412', lineHeight: 1.5,
             }}>
               <div style={{ fontWeight: 600, marginBottom: '4px' }}>Peppol verzending nog niet geconfigureerd</div>
               <div>Om facturen via Peppol te verzenden heb je een Access Point nodig. Stel de volgende environment variables in via Cloudflare Pages:</div>
               <div style={{
                 marginTop: '6px', padding: '6px 8px', background: '#FEF3C7',
-                borderRadius: '3px', fontFamily: 'var(--fn)', fontSize: '10px',
+                borderRadius: '3px', fontFamily: 'var(--fn)', fontSize: '12px',
               }}>
                 PEPPOL_API_KEY = jouw API key<br />
                 PEPPOL_PROVIDER = storecove<br />
@@ -197,7 +197,7 @@ export default function PeppolPanel({ recipientKvk, recipientName, senderKvk, xm
           {sendStatus === 'error' && (
             <div style={{
               marginTop: '10px', padding: '8px 12px', background: '#FEF2F2',
-              borderRadius: '4px', fontSize: '11px', color: '#991B1B',
+              borderRadius: '4px', fontSize: '13px', color: '#991B1B',
             }}>
               ✗ {sendResult?.error || 'Verzending mislukt.'}
             </div>
@@ -207,10 +207,10 @@ export default function PeppolPanel({ recipientKvk, recipientName, senderKvk, xm
 
       {lookupStatus === 'notfound' && (
         <div>
-          <div style={{ fontSize: '12px', color: '#C2410C', fontWeight: 600, marginBottom: '4px' }}>
+          <div style={{ fontSize: '14px', color: '#C2410C', fontWeight: 600, marginBottom: '4px' }}>
             ○ Niet gevonden op Peppol
           </div>
-          <div style={{ fontSize: '10px', color: '#7C2D12', lineHeight: 1.5 }}>
+          <div style={{ fontSize: '12px', color: '#7C2D12', lineHeight: 1.5 }}>
             {recipientName || 'De opdrachtgever'} (KvK: {recipientKvk}) is niet geregistreerd op het Peppol netwerk. Gebruik de PDF- of XML-export om de factuur handmatig te verzenden.
           </div>
           <button
@@ -218,7 +218,7 @@ export default function PeppolPanel({ recipientKvk, recipientName, senderKvk, xm
             style={{
               marginTop: '8px', background: 'transparent', color: '#C2410C',
               border: '1px solid #FDBA74', borderRadius: '4px', padding: '5px 12px',
-              fontSize: '10px', fontFamily: 'var(--fn)', cursor: 'pointer',
+              fontSize: '12px', fontFamily: 'var(--fn)', cursor: 'pointer',
             }}
           >
             Opnieuw controleren
@@ -228,7 +228,7 @@ export default function PeppolPanel({ recipientKvk, recipientName, senderKvk, xm
 
       {lookupStatus === 'error' && (
         <div>
-          <div style={{ fontSize: '11px', color: '#DC2626', marginBottom: '4px' }}>
+          <div style={{ fontSize: '13px', color: '#DC2626', marginBottom: '4px' }}>
             {lookupData?.error || lookupData?.message || 'Fout bij Peppol lookup.'}
           </div>
           <button
@@ -236,7 +236,7 @@ export default function PeppolPanel({ recipientKvk, recipientName, senderKvk, xm
             style={{
               marginTop: '6px', background: 'transparent', color: '#DC2626',
               border: '1px solid #FECACA', borderRadius: '4px', padding: '5px 12px',
-              fontSize: '10px', fontFamily: 'var(--fn)', cursor: 'pointer',
+              fontSize: '12px', fontFamily: 'var(--fn)', cursor: 'pointer',
             }}
           >
             Opnieuw proberen

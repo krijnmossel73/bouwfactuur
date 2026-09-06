@@ -89,15 +89,15 @@ export default function AuthModal({ mode: initialMode = 'login', onClose, onDone
     >
       <div style={{ background: 'var(--bg)', border: '1px solid var(--bd)', borderRadius: '8px', padding: '24px', width: '100%', maxWidth: '360px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <span style={{ fontSize: '14px', fontWeight: 700 }}>{titles[mode]}</span>
+          <span style={{ fontSize: '16px', fontWeight: 700 }}>{titles[mode]}</span>
           {mode !== 'newPassword' && (
-            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--tm)', fontSize: '16px', lineHeight: 1 }} title="Sluiten">×</button>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--tm)', fontSize: '18px', lineHeight: 1 }} title="Sluiten">×</button>
           )}
         </div>
 
         {msg && (
           <div style={{
-            padding: '8px 12px', borderRadius: '5px', fontSize: '11px', marginBottom: '12px', lineHeight: 1.5,
+            padding: '8px 12px', borderRadius: '5px', fontSize: '13px', marginBottom: '12px', lineHeight: 1.5,
             background: msg.type === 'error' ? 'rgba(220,38,38,.08)' : 'rgba(22,163,74,.08)',
             border: `1px solid ${msg.type === 'error' ? 'rgba(220,38,38,.3)' : 'rgba(22,163,74,.3)'}`,
             color: msg.type === 'error' ? 'var(--dn)' : 'var(--ok)',
@@ -137,7 +137,7 @@ export default function AuthModal({ mode: initialMode = 'login', onClose, onDone
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '4px 0 10px' }}>
               <div style={{ flex: 1, height: '1px', background: 'var(--bd)' }} />
-              <span style={{ fontSize: '9px', color: 'var(--tm)', letterSpacing: '.08em' }}>OF</span>
+              <span style={{ fontSize: '11px', color: 'var(--tm)', letterSpacing: '.08em' }}>OF</span>
               <div style={{ flex: 1, height: '1px', background: 'var(--bd)' }} />
             </div>
             <button onClick={google} disabled={busy} style={{ ...btn2, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: busy ? 0.6 : 1 }}>
@@ -147,7 +147,7 @@ export default function AuthModal({ mode: initialMode = 'login', onClose, onDone
           </>
         )}
 
-        <div style={{ marginTop: '14px', fontSize: '10px', color: 'var(--tm)', display: 'flex', justifyContent: 'space-between' }}>
+        <div style={{ marginTop: '14px', fontSize: '12px', color: 'var(--tm)', display: 'flex', justifyContent: 'space-between' }}>
           {mode === 'login' && (
             <>
               <button onClick={() => { setMode('register'); setMsg(null); }} style={linkBtn}>Account aanmaken</button>
@@ -165,5 +165,5 @@ export default function AuthModal({ mode: initialMode = 'login', onClose, onDone
 
 const linkBtn = {
   background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-  fontSize: '10px', color: 'var(--ac)', textDecoration: 'underline',
+  fontSize: '12px', color: 'var(--ac)', textDecoration: 'underline',
 };
