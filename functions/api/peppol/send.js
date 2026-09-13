@@ -1,183 +1,70 @@
 /**
- * Cloudflare Pages Function: /api/peppol/send
+ * Cloudflare Pages Function: POST /api/peppol/send
  *
- * Sends a UBL invoice via a Peppol Access Point.
+ * Sends a NLCIUS/Peppol BIS 3.0 UBL invoice through B2Brouter in a single
+ * import-and-send call. B2Brouter reads the recipient from the UBL
+ * (EndpointID 0106:<KvK>), so no contact management is needed here.
  *
- * Requires environment variables:
- *   PEPPOL_API_KEY     — API key from your Access Point provider
- *   PEPPOL_PROVIDER    — Provider name: "storecove" (default) | "econnect" | "custom"
- *   PEPPOL_API_URL     — Custom API URL (only needed for "custom" provider)
- *   PEPPOL_SENDER_ID   — Your Peppol sender identifier (e.g. legal entity ID)
- *
- * Usage: POST /api/peppol/send
- * Body: { xml: "...", recipientKvk: "12345678", senderKvk: "87654321" }
- *
- * Supported providers:
- * - Storecove (storecove.com) — NL-based, free sandbox, REST API
- * - eConnect (econnect.eu) — NL construction-focused
- * - Custom — any provider with a REST API
+ * Body:     { xml: "...", recipientKvk: "12345678", number?: "2026-0001" }
+ * Response: { success, invoiceId, state, stateLabel, sandbox, sentAt }
+ *           { success: false, error, needsSetup?: true, code?, details? }
  */
 
-// Provider configurations
-const PROVIDERS = {
-  storecove: {
-    // Storecove API: POST /api/v2/document_submissions
-    // Docs: https://www.storecove.com/docs/
-    sendUrl: 'https://api.storecove.com/api/v2/document_submissions',
-    buildRequest: (xml, recipientKvk, senderEntityId, apiKey) => ({
-      url: 'https://api.storecove.com/api/v2/document_submissions',
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        legalEntityId: senderEntityId,
-        routing: {
-          eIdentifiers: [{
-            scheme: 'NL:KVK',
-            id: recipientKvk,
-          }],
-        },
-        document: {
-          documentType: 'invoice',
-          rawDocumentData: {
-            document: btoa(xml),
-            parseStrategy: 'ubl',
-          },
-        },
-      }),
-    }),
-    parseResponse: (data) => ({
-      success: true,
-      messageId: data.guid || data.id || 'submitted',
-    }),
-  },
-
-  econnect: {
-    // eConnect API — adapt as needed per their docs
-    buildRequest: (xml, recipientKvk, senderEntityId, apiKey, apiUrl) => ({
-      url: apiUrl || 'https://api.econnect.eu/v1/invoices',
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/xml',
-      },
-      body: xml,
-    }),
-    parseResponse: (data) => ({
-      success: true,
-      messageId: data.messageId || data.id || 'submitted',
-    }),
-  },
-};
-
-import { requireUser } from '../../../lib/auth.js';
+import { requireUser, jsonResponse } from '../../../lib/auth.js';
+import { b2bConfigured, b2bIsSandbox, importInvoice, STATE_LABELS, B2BrouterError } from '../../../lib/b2brouter.js';
 
 export async function onRequestPost(context) {
-  // Sending via the Access Point costs money and goes out under our
-  // PEPPOL_SENDER_ID, so anonymous callers are refused outright.
+  // Sending costs transactions on our B2Brouter plan; anonymous callers are refused.
   const auth = requireUser(context);
   if (auth.err) return auth.err;
 
-  const corsHeaders = { 'Content-Type': 'application/json' };
-
-  // Check for API key
-  const apiKey = context.env?.PEPPOL_API_KEY;
-  if (!apiKey) {
-    return new Response(JSON.stringify({
+  const env = context.env || {};
+  if (!b2bConfigured(env)) {
+    return jsonResponse({
       success: false,
-      error: 'Peppol is nog niet geconfigureerd. Stel PEPPOL_API_KEY in via Cloudflare Pages → Settings → Environment variables.',
       needsSetup: true,
-    }), { status: 200, headers: corsHeaders });
+      error: 'Peppol is nog niet geconfigureerd. Stel B2BROUTER_API_KEY in als Cloudflare Pages secret.',
+    });
   }
 
-  // Parse request body
   let body;
   try {
     body = await context.request.json();
   } catch {
-    return new Response(JSON.stringify({ success: false, error: 'Ongeldig request.' }), {
-      status: 400, headers: corsHeaders,
-    });
+    return jsonResponse({ success: false, error: 'Ongeldig request.' }, 400);
   }
 
-  const { xml, recipientKvk, senderKvk } = body;
-
-  if (!xml || !recipientKvk) {
-    return new Response(JSON.stringify({ success: false, error: 'XML en ontvanger KvK-nummer zijn verplicht.' }), {
-      status: 400, headers: corsHeaders,
-    });
+  const { xml, recipientKvk, number } = body || {};
+  if (!xml || typeof xml !== 'string' || !xml.includes('<Invoice')) {
+    return jsonResponse({ success: false, error: 'Geldige factuur-XML is verplicht.' }, 400);
   }
-
-  // Determine provider
-  const providerName = (context.env?.PEPPOL_PROVIDER || 'storecove').toLowerCase();
-  const provider = PROVIDERS[providerName];
-  const senderEntityId = context.env?.PEPPOL_SENDER_ID || '';
-  const customUrl = context.env?.PEPPOL_API_URL || '';
-
-  if (!provider && providerName !== 'custom') {
-    return new Response(JSON.stringify({
-      success: false,
-      error: `Onbekende Peppol provider: ${providerName}. Gebruik "storecove", "econnect", of "custom".`,
-    }), { status: 400, headers: corsHeaders });
+  if (!recipientKvk || !/^\d{8}$/.test(String(recipientKvk).replace(/\D/g, ''))) {
+    return jsonResponse({ success: false, error: 'Ontvanger KvK-nummer (8 cijfers) is verplicht.' }, 400);
   }
 
   try {
-    let reqConfig;
-
-    if (providerName === 'custom') {
-      if (!customUrl) {
-        return new Response(JSON.stringify({
-          success: false,
-          error: 'PEPPOL_API_URL is vereist voor custom provider.',
-        }), { status: 400, headers: corsHeaders });
-      }
-      reqConfig = {
-        url: customUrl,
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/xml',
-        },
-        body: xml,
-      };
-    } else {
-      reqConfig = provider.buildRequest(xml, recipientKvk, senderEntityId, apiKey, customUrl);
-    }
-
-    const apRes = await fetch(reqConfig.url, {
-      method: reqConfig.method,
-      headers: reqConfig.headers,
-      body: reqConfig.body,
-      signal: AbortSignal.timeout(20000),
+    const fileName = `${(number || 'factuur').replace(/[^\w.-]+/g, '_')}.xml`;
+    const inv = await importInvoice(env, xml, { send: true, fileName });
+    return jsonResponse({
+      success: true,
+      invoiceId: inv.id,
+      number: inv.number || number || null,
+      state: inv.state,
+      stateLabel: STATE_LABELS[inv.state] || inv.state,
+      errorCode: inv.errorCode,
+      sandbox: b2bIsSandbox(env),
+      sentAt: new Date().toISOString(),
     });
-
-    if (!apRes.ok) {
-      const errText = await apRes.text();
-      return new Response(JSON.stringify({
-        success: false,
-        error: `Access Point fout (HTTP ${apRes.status}).`,
-        detail: errText.substring(0, 500),
-      }), { status: 200, headers: corsHeaders });
-    }
-
-    const data = await apRes.json().catch(() => ({}));
-    const result = provider
-      ? provider.parseResponse(data)
-      : { success: true, messageId: data.id || 'submitted' };
-
-    return new Response(JSON.stringify({
-      ...result,
-      provider: providerName,
-    }), { status: 200, headers: corsHeaders });
-
   } catch (err) {
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'Kon niet verbinden met Peppol Access Point.',
-      detail: err.message,
-    }), { status: 502, headers: corsHeaders });
+    if (err instanceof B2BrouterError) {
+      const friendly = err.status === 401
+        ? 'B2Brouter API key ongeldig of verlopen.'
+        : err.status === 422 || err.status === 406
+          ? `Factuur afgekeurd door B2Brouter: ${err.message}`
+          : `B2Brouter fout (HTTP ${err.status}): ${err.message}`;
+      return jsonResponse({ success: false, error: friendly, code: err.code || null, details: err.details || null });
+    }
+    const msg = err?.name === 'TimeoutError' ? 'B2Brouter reageerde niet op tijd.' : `Verzending mislukt: ${err.message}`;
+    return jsonResponse({ success: false, error: msg });
   }
 }
-

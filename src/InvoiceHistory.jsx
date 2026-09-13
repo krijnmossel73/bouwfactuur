@@ -71,6 +71,23 @@ export default function InvoiceHistory({
                       >
                         {isOpen ? 'Open' : 'Betaald'}
                       </button>
+                      {inv.peppol?.invoiceId && (() => {
+                        const bad = inv.peppol.state === 'refused' || inv.peppol.state === 'error';
+                        return (
+                          <span
+                            title={`Peppol via B2Brouter (ref ${inv.peppol.invoiceId})`}
+                            style={{
+                              fontSize: '11px', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase',
+                              padding: '3px 8px', borderRadius: '10px',
+                              background: bad ? 'rgba(220,38,38,.10)' : 'rgba(37,99,235,.10)',
+                              color: bad ? '#B91C1C' : '#1D4ED8',
+                              border: `1px solid ${bad ? 'rgba(220,38,38,.35)' : 'rgba(37,99,235,.35)'}`,
+                            }}
+                          >
+                            Peppol: {inv.peppol.stateLabel || inv.peppol.state}
+                          </span>
+                        );
+                      })()}
                     </div>
                     <div style={{ fontSize: '13px', color: 'var(--tm)', marginTop: '3px' }}>
                       {fmtDate(inv.date)} &nbsp;|&nbsp; {inv.project?.projectNaam || '—'} &nbsp;|&nbsp;

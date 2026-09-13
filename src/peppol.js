@@ -1,89 +1,68 @@
 /**
- * Peppol Integration for BouwFactuur
+ * Peppol integration for BouwFactuur (client side).
  *
- * Two capabilities:
- * 1. Peppol Directory lookup (free, public API) — check if a recipient
- *    is registered on the Peppol network before sending
- * 2. Send invoice via a Peppol Access Point (requires subscription)
+ * 1. Recipient lookup in the public Peppol Directory (free) — is the
+ *    opdrachtgever registered under 0106:<KvK>?
+ * 2. Send the NLCIUS UBL through B2Brouter (Access Point) in one call.
+ * 3. Poll the delivery state (sent → registered → accepted/refused).
  *
- * For NL companies, the Peppol participant ID uses scheme 0106 (KvK number).
- *
- * Supported Access Point providers (configure via env vars):
- * - Storecove (NL-based, REST API, free sandbox)
- * - eConnect
- * - Any provider with a REST API
+ * All calls go through our own /api/peppol/* functions with the user's JWT;
+ * the B2Brouter API key never reaches the browser.
  */
 
-/**
- * Check if a company is registered on the Peppol network.
- * Uses the free public Peppol Directory at directory.peppol.eu.
- *
- * @param {string} kvkNummer - KvK number (8 digits)
- * @returns {Promise<{found: boolean, name?: string, error?: string}>}
- */
 import { authHeaders } from './storage.js';
 
 export async function peppolLookup(kvkNummer) {
-  if (!kvkNummer || kvkNummer.replace(/\D/g, '').length !== 8) {
-    return { found: false, error: 'Ongeldig KvK-nummer.' };
-  }
-
-  const cleaned = kvkNummer.replace(/\D/g, '');
+  const cleaned = String(kvkNummer || '').replace(/\D/g, '');
+  if (cleaned.length !== 8) return { found: false, error: 'Ongeldig KvK-nummer.' };
 
   try {
     const res = await fetch(`/api/peppol/lookup?kvk=${cleaned}`, {
       headers: await authHeaders(),
       signal: AbortSignal.timeout(10000),
     });
-
     if (res.status === 404) {
       return { found: false, error: null, devMode: true, message: 'Peppol lookup niet beschikbaar in dev-modus.' };
     }
-
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       return { found: false, error: body.error || `HTTP ${res.status}` };
     }
-
-    const data = await res.json();
-    return data;
+    return await res.json();
   } catch (err) {
-    if (err.name === 'TimeoutError') {
-      return { found: false, error: 'Peppol Directory timeout.' };
-    }
-    return { found: false, error: 'Peppol Directory niet bereikbaar.' };
+    return { found: false, error: err.name === 'TimeoutError' ? 'Peppol Directory timeout.' : 'Peppol Directory niet bereikbaar.' };
   }
 }
 
 /**
- * Send an invoice via Peppol through the configured Access Point.
- * Requires PEPPOL_API_KEY env var on the server.
- *
- * @param {string} xmlString - UBL 2.1 NLCIUS invoice XML
- * @param {string} recipientKvk - Recipient KvK number
- * @param {string} senderKvk - Sender KvK number
- * @returns {Promise<{success: boolean, messageId?: string, error?: string}>}
+ * @returns {Promise<{success:boolean, invoiceId?:string, state?:string, stateLabel?:string, sandbox?:boolean, error?:string, needsSetup?:boolean}>}
  */
-export async function peppolSend(xmlString, recipientKvk, senderKvk) {
+export async function peppolSend(xmlString, recipientKvk, number) {
   try {
     const res = await fetch('/api/peppol/send', {
       method: 'POST',
       headers: await authHeaders(),
-      body: JSON.stringify({
-        xml: xmlString,
-        recipientKvk,
-        senderKvk,
-      }),
-      signal: AbortSignal.timeout(30000),
+      body: JSON.stringify({ xml: xmlString, recipientKvk, number }),
+      signal: AbortSignal.timeout(40000),
     });
-
-    if (res.status === 404) {
-      return { success: false, error: 'Peppol verzending niet beschikbaar in dev-modus.' };
-    }
-
-    const data = await res.json();
-    return data;
+    if (res.status === 404) return { success: false, error: 'Peppol verzending niet beschikbaar in dev-modus.' };
+    return await res.json();
   } catch (err) {
-    return { success: false, error: 'Kon niet verbinden met Peppol Access Point.' };
+    return { success: false, error: err.name === 'TimeoutError' ? 'Access Point reageerde niet op tijd.' : 'Kon niet verbinden met Peppol Access Point.' };
+  }
+}
+
+/** @returns {Promise<{state?:string, stateLabel?:string, final?:boolean, errorCode?:string, error?:string}>} */
+export async function peppolStatus(invoiceId) {
+  try {
+    const res = await fetch(`/api/peppol/status?id=${encodeURIComponent(invoiceId)}`, {
+      headers: await authHeaders(),
+      signal: AbortSignal.timeout(15000),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) return { error: body.error || `HTTP ${res.status}` };
+    return body;
+  } catch {
+    return { error: 'Status kon niet worden opgehaald.' };
   }
 }

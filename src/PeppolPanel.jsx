@@ -1,15 +1,49 @@
-import { useState } from 'react';
-import { peppolLookup, peppolSend } from './peppol.js';
+import { useState, useEffect, useRef } from 'react';
+import { peppolLookup, peppolSend, peppolStatus } from './peppol.js';
 
 /**
  * Peppol panel shown on the invoice preview step.
  * Flow: Check recipient → Show status → Send if available.
  */
-export default function PeppolPanel({ recipientKvk, recipientName, senderKvk, xmlString, onGenerateXml }) {
-  const [lookupStatus, setLookupStatus] = useState('idle'); // idle | loading | found | notfound | error
-  const [lookupData, setLookupData] = useState(null);
-  const [sendStatus, setSendStatus] = useState('idle'); // idle | loading | sent | error | needsSetup
-  const [sendResult, setSendResult] = useState(null);
+const FINAL_STATES = new Set(['registered', 'accepted', 'refused', 'error', 'paid']);
+const GOOD_STATES = new Set(['sent', 'registered', 'accepted', 'paid']);
+
+export default function PeppolPanel({ recipientKvk, recipientName, invoiceNumber, previous, onGenerateXml, onSent }) {
+  const [lookupStatus, setLookupStatus] = useState(previous?.invoiceId ? 'found' : 'idle'); // idle | loading | found | notfound | error
+  const [lookupData, setLookupData] = useState(previous?.invoiceId ? { participantId: `0106:${String(recipientKvk || '').replace(/\D/g, '')}` } : null);
+  const [sendStatus, setSendStatus] = useState(previous?.invoiceId ? 'sent' : 'idle'); // idle | loading | sent | error | needsSetup
+  const [sendResult, setSendResult] = useState(previous || null);
+  const [delivery, setDelivery] = useState(previous ? { state: previous.state, stateLabel: previous.stateLabel } : null);
+  const [checking, setChecking] = useState(false);
+  const pollRef = useRef(null);
+
+  const refreshStatus = async (id) => {
+    const invoiceId = id || sendResult?.invoiceId;
+    if (!invoiceId) return null;
+    setChecking(true);
+    const st = await peppolStatus(invoiceId);
+    setChecking(false);
+    if (!st.error) {
+      setDelivery(st);
+      onSent?.({ ...(sendResult || {}), invoiceId, state: st.state, stateLabel: st.stateLabel, errorCode: st.errorCode || null });
+    }
+    return st;
+  };
+
+  // After a send, poll a handful of times: B2Brouter transitions arrive
+  // asynchronously within seconds (sent → registered → accepted/refused).
+  useEffect(() => {
+    if (sendStatus !== 'sent' || !sendResult?.invoiceId) return undefined;
+    if (delivery && FINAL_STATES.has(delivery.state)) return undefined;
+    let tries = 0;
+    pollRef.current = setInterval(async () => {
+      tries += 1;
+      const st = await refreshStatus(sendResult.invoiceId);
+      if (tries >= 6 || (st && !st.error && FINAL_STATES.has(st.state))) clearInterval(pollRef.current);
+    }, 4000);
+    return () => clearInterval(pollRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sendStatus, sendResult?.invoiceId]);
 
   const doLookup = async () => {
     if (!recipientKvk || recipientKvk.replace(/\D/g, '').length !== 8) {
@@ -53,7 +87,7 @@ export default function PeppolPanel({ recipientKvk, recipientName, senderKvk, xm
     // Generate fresh XML
     const xml = onGenerateXml();
 
-    const result = await peppolSend(xml, recipientKvk, senderKvk);
+    const result = await peppolSend(xml, recipientKvk, invoiceNumber);
 
     if (result.needsSetup) {
       setSendStatus('needsSetup');
@@ -61,6 +95,8 @@ export default function PeppolPanel({ recipientKvk, recipientName, senderKvk, xm
     } else if (result.success) {
       setSendStatus('sent');
       setSendResult(result);
+      setDelivery({ state: result.state, stateLabel: result.stateLabel });
+      onSent?.({ invoiceId: result.invoiceId, state: result.state, stateLabel: result.stateLabel, sandbox: result.sandbox, sentAt: result.sentAt });
     } else {
       setSendStatus('error');
       setSendResult(result);
@@ -163,15 +199,39 @@ export default function PeppolPanel({ recipientKvk, recipientName, senderKvk, xm
             </div>
           )}
 
-          {sendStatus === 'sent' && (
-            <div style={{
-              marginTop: '10px', padding: '8px 12px', background: '#DCFCE7',
-              borderRadius: '4px', fontSize: '13px', color: '#166534',
-            }}>
-              ✓ Factuur verzonden via Peppol
-              {sendResult?.messageId && <span> (ref: {sendResult.messageId})</span>}
-            </div>
-          )}
+          {sendStatus === 'sent' && (() => {
+            const st = delivery?.state || sendResult?.state;
+            const label = delivery?.stateLabel || sendResult?.stateLabel || st;
+            const bad = st === 'refused' || st === 'error';
+            const done = FINAL_STATES.has(st);
+            return (
+              <div style={{
+                marginTop: '10px', padding: '8px 12px',
+                background: bad ? '#FEF2F2' : '#DCFCE7',
+                borderRadius: '4px', fontSize: '13px', color: bad ? '#991B1B' : '#166534', lineHeight: 1.6,
+              }}>
+                <div style={{ fontWeight: 600 }}>
+                  {bad ? '✗' : done ? '✓' : '⟳'} {label}
+                  {sendResult?.sandbox && <span style={{ fontWeight: 400 }}> (sandbox, geen echte verzending)</span>}
+                </div>
+                {sendResult?.invoiceId && <div>B2Brouter referentie: {sendResult.invoiceId}</div>}
+                {delivery?.errorCode && <div>Foutcode: {delivery.errorCode}</div>}
+                {delivery?.errorMessage && <div>{delivery.errorMessage}</div>}
+                {!done && !GOOD_STATES.has(st) && st && <div style={{ fontSize: '12px' }}>Wordt verwerkt door het Access Point…</div>}
+                <button
+                  onClick={() => refreshStatus()}
+                  disabled={checking}
+                  style={{
+                    marginTop: '6px', background: 'transparent', color: bad ? '#991B1B' : '#166534',
+                    border: `1px solid ${bad ? '#FECACA' : '#86EFAC'}`, borderRadius: '4px', padding: '4px 10px',
+                    fontSize: '12px', fontFamily: 'var(--fn)', cursor: checking ? 'wait' : 'pointer',
+                  }}
+                >
+                  {checking ? 'Controleren…' : 'Status vernieuwen'}
+                </button>
+              </div>
+            );
+          })()}
 
           {sendStatus === 'needsSetup' && (
             <div style={{
@@ -179,17 +239,15 @@ export default function PeppolPanel({ recipientKvk, recipientName, senderKvk, xm
               borderRadius: '4px', fontSize: '13px', color: '#9A3412', lineHeight: 1.5,
             }}>
               <div style={{ fontWeight: 600, marginBottom: '4px' }}>Peppol verzending nog niet geconfigureerd</div>
-              <div>Om facturen via Peppol te verzenden heb je een Access Point nodig. Stel de volgende environment variables in via Cloudflare Pages:</div>
+              <div>Om facturen via Peppol te verzenden heeft BouwFactuur een B2Brouter API key nodig. Stel deze in als Cloudflare Pages secret:</div>
               <div style={{
                 marginTop: '6px', padding: '6px 8px', background: '#FEF3C7',
                 borderRadius: '3px', fontFamily: 'var(--fn)', fontSize: '12px',
               }}>
-                PEPPOL_API_KEY = jouw API key<br />
-                PEPPOL_PROVIDER = storecove<br />
-                PEPPOL_SENDER_ID = jouw legal entity ID
+                B2BROUTER_API_KEY = test_… (sandbox) of prod_… (productie)
               </div>
               <div style={{ marginTop: '6px' }}>
-                Aanbevolen providers: <a href="https://www.storecove.com" target="_blank" rel="noopener" style={{ color: '#C2410C' }}>Storecove</a> (NL, gratis sandbox) of <a href="https://econnect.eu" target="_blank" rel="noopener" style={{ color: '#C2410C' }}>eConnect</a> (bouw-sector).
+                Keys vind je in <a href="https://app.b2brouter.net" target="_blank" rel="noopener" style={{ color: '#C2410C' }}>B2Brouter</a> onder Developers → API Keys.
               </div>
             </div>
           )}

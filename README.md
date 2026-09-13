@@ -13,7 +13,7 @@ Live: https://bouwfactuur.pages.dev
 - **Compliance check**: pre-export checklist against Belastingdienst factuurvereisten and Wka requirements, including IBAN mod-97 validation
 - **PDF export**: A4 print layout via browser print-to-PDF
 - **NLCIUS UBL 2.1 XML export**: EN16931-compliant invoice XML (Peppol BIS 3.0 profile) with construction-specific fields, compatible with Peppol and DICO service providers
-- **Peppol**: recipient lookup in the Peppol Directory and sending via a Peppol Access Point (Storecove, eConnect or custom); behind a feature flag
+- **Peppol**: recipient lookup in the Peppol Directory, one-call sending via B2Brouter (Access Point) and delivery-state tracking per invoice; behind a feature flag
 - **VIES validation**: real-time BTW-nummer check against the EC VIES API with auto-fill of name and address
 - **KvK lookup**: company lookup by KvK-nummer via the KvK Zoeken API (free test environment out of the box)
 - **Accounts**: Supabase Auth (email/password and Google); visitors see a public landing page and an explanation page at `#/uitleg`
@@ -74,10 +74,10 @@ Non-secret values live in `wrangler.toml` under `[vars]`; secrets are set with `
 | `STRIPE_SECRET_KEY` | for billing | Secret. Enabling this also activates the freemium limit |
 | `STRIPE_WEBHOOK_SECRET` | for billing | Secret, from the webhook endpoint in Stripe |
 | `KVK_API_KEY` | no | Production KvK key; without it the free test environment is used |
-| `PEPPOL_API_KEY` | for Peppol | Access Point API key |
-| `PEPPOL_PROVIDER` | for Peppol | `storecove` (default), `econnect` or `custom` |
-| `PEPPOL_SENDER_ID` | for Peppol | Legal entity ID at the provider |
-| `PEPPOL_API_URL` | custom only | Endpoint for a custom provider |
+| `B2BROUTER_API_KEY` | for Peppol | Secret. `test_…` routes to the B2Brouter sandbox, `prod_…` to production |
+| `B2BROUTER_ACCOUNT_ID` | no | Issuing account; resolved automatically from `GET /accounts` when omitted |
+| `B2BROUTER_API_VERSION` | no | Pinned `X-B2B-API-Version`, default `2026-06-26` |
+| `B2BROUTER_API_URL` | no | Default `https://api.b2brouter.net` |
 
 ### Feature flags
 
@@ -116,9 +116,17 @@ Until `STRIPE_SECRET_KEY` is configured the app is unlimited and free; the invoi
 
 The proxy uses the KvK test environment (fictitious data such as "Test BV Donald") until `KVK_API_KEY` is set. Apply for a production key at https://developers.kvk.nl/apply-for-apis.
 
-### Peppol
+### Peppol (B2Brouter)
 
-Peppol Directory lookup works without setup. Sending requires an Access Point subscription: set the `PEPPOL_*` variables above and switch `features.peppol` on in `src/config.js`. Recommended NL providers: Storecove (REST API, free sandbox) and eConnect (construction-focused, DICO). Dutch participants use scheme `0106` (KvK-nummer).
+Recipient lookup uses the public Peppol Directory and needs no setup. Sending goes through [B2Brouter](https://www.b2brouter.net) as Access Point:
+
+1. Sign in to B2Brouter, open **Developers** (lightning-bolt icon) and create a **Sandbox**; inside it, create an API key (`test_…`).
+2. `npx wrangler pages secret put B2BROUTER_API_KEY --project-name bouwfactuur`
+3. Set `features.peppol = true` in `src/config.js` and deploy.
+4. Send a test invoice. In the sandbox nothing leaves B2Brouter: any recipient reaches `sent → registered`. Optionally add a contact with GLN `9506215594996` (refused) or `9500047420799` (no receiver) to exercise the failure paths.
+5. For production, create a `prod_…` key in the normal (non-sandbox) workspace, make sure your company is registered as a Peppol participant there (Connections → Peppol), and replace the secret. Same base URL; the key selects the environment.
+
+How a send works: the NLCIUS UBL is posted to `POST /accounts/{id}/invoices/import?send_after_import=true`. B2Brouter reads the recipient from `AccountingCustomerParty/EndpointID` (`0106:<KvK>`), creates or matches the contact, validates the document and queues it. The app then polls `GET /invoices/{id}` for the delivery state (`sent → registered → accepted/refused`, or `error` with a code such as `PEPPOL_NO_RECEIVER`) and stores the last known state on the invoice.
 
 ## Deploy
 
@@ -145,7 +153,8 @@ Custom domains are added under Pages → Custom domains; Cloudflare provisions T
 | GET | `/api/vies?country=NL&number=...` | JWT | VIES proxy |
 | GET | `/api/kvk?kvkNummer=...` or `?naam=...` | JWT | KvK Zoeken proxy |
 | GET | `/api/peppol/lookup?kvk=...` | JWT | Peppol Directory lookup |
-| POST | `/api/peppol/send` | JWT | Send UBL XML via the Access Point |
+| POST | `/api/peppol/send` | JWT | Import-and-send UBL via B2Brouter; returns the B2Brouter invoice id and state |
+| GET | `/api/peppol/status?id=...` | JWT | Delivery state of a sent invoice |
 
 Responses: 401 without a valid session, 503 when a required binding or secret is missing.
 
@@ -182,10 +191,11 @@ functions/
     ├── account.js
     ├── billing/         checkout.js, portal.js, webhook.js
     ├── vies.js, kvk.js
-    └── peppol/          lookup.js, send.js
+    └── peppol/          lookup.js, send.js, status.js
 
 lib/
 ├── auth.js              requireUser() guard for handlers
+├── b2brouter.js         B2Brouter API client (import-and-send, status, directory)
 ├── accounts.js          Freemium entitlement logic
 └── stripe.js            Minimal Stripe client + webhook signature check
 
@@ -200,7 +210,8 @@ public/_routes.json      Routes only /api/* through Functions
 - [ ] Invoices as their own D1 table with server-issued numbers
 - [ ] Privacy statement, algemene voorwaarden, account deletion
 - [ ] Server-side PDF generation
-- [ ] Peppol sending enabled by default once an Access Point contract is in place
+- [ ] Peppol sending enabled by default once the B2Brouter production key is in place
+- [ ] B2Brouter webhook receiver so delivery states update without polling
 
 ## License
 

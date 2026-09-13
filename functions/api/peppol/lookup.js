@@ -3,6 +3,8 @@
  *
  * Looks up a company in the Peppol Directory by KvK number.
  * The Peppol Directory API is free and public (directory.peppol.eu).
+ * Deliberately not the B2Brouter directory: that lookup is asynchronous and
+ * the sandbox never queries the real SML, so this stays accurate in both modes.
  *
  * For NL companies, the Peppol participant ID scheme is:
  *   0106 = KvK number

@@ -49,6 +49,7 @@ export default function App() {
   const [authModal, setAuthModal] = useState(null); // null | 'login' | 'register' | 'newPassword'
   const [account, setAccount] = useState(null); // /api/account payload or null
   const [paywall, setPaywall] = useState(false);
+  const [peppol, setPeppol] = useState(null); // { invoiceId, state, stateLabel, sandbox, sentAt } after a Peppol send
 
   const gPerc = customGPerc !== null ? customGPerc : (TRADE_PERCENTAGES[oa.trade] || 40);
   const totals = calcTotals(lines, btwVerlegd, useGrek, gPerc, btwTarief);
@@ -204,6 +205,7 @@ export default function App() {
       oa: { ...oa }, og: { ...og }, project: { ...project },
       lines: [...lines], btwVerlegd, btwTarief, useGrek, gPerc,
       totals: { ...totals },
+      ...(peppol ? { peppol } : {}),
     };
     const next = [inv, ...invoices];
     if (!(await persist(KEYS.invoices, next))) return;
@@ -217,6 +219,7 @@ export default function App() {
 
   const loadInvoice = (inv) => {
     setOa(inv.oa); setOg(inv.og); setProject(inv.project); setLines(inv.lines);
+    setPeppol(inv.peppol || null);
     setBtwVerlegd(inv.btwVerlegd); setBtwTarief(inv.btwTarief ?? 21);
     setUseGrek(inv.useGrek); setCustomGPerc(inv.gPerc);
     setView('editor'); setStep(3);
@@ -224,6 +227,7 @@ export default function App() {
   };
 
   const dupInvoice = (inv) => {
+    setPeppol(null);
     setOa(inv.oa); setOg(inv.og);
     setProject({
       ...inv.project,
@@ -296,6 +300,7 @@ export default function App() {
 
   const newInvoice = () => {
     setOg({ ...BLANK_OG });
+    setPeppol(null);
     setProject({
       ...BLANK_PROJECT,
       factuurnummer: makeInvoiceNumber(nextNum),
@@ -815,10 +820,21 @@ export default function App() {
             {/* Peppol e-Invoicing */}
             {features.peppol && (
               <PeppolPanel
+                key={project.factuurnummer}
                 recipientKvk={og.kvk}
                 recipientName={og.naam}
-                senderKvk={oa.kvk}
+                invoiceNumber={project.factuurnummer}
+                previous={peppol}
                 onGenerateXml={() => generateInvoiceXML({ oa, og, project, lines, totals, btwVerlegd, btwTarief, useGrek, gPerc })}
+                onSent={async (info) => {
+                  setPeppol(info);
+                  // Keep the saved copy in sync when this invoice was already stored
+                  const idx = invoices.findIndex((i) => i.nummer === project.factuurnummer);
+                  if (idx === -1) return;
+                  const next = [...invoices];
+                  next[idx] = { ...next[idx], peppol: info };
+                  if (await persist(KEYS.invoices, next)) setInvoices(next);
+                }}
               />
             )}
           </div>

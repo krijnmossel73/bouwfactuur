@@ -22,3 +22,8 @@ STRIPE_PRICE_ID = "price_1UEq6uKH5lzsZkI174DscKMV"
 # Secrets (NOT in this file — set via CLI):
 #   npx wrangler pages secret put STRIPE_SECRET_KEY --project-name bouwfactuur
 #   npx wrangler pages secret put STRIPE_WEBHOOK_SECRET --project-name bouwfactuur
+#   npx wrangler pages secret put B2BROUTER_API_KEY --project-name bouwfactuur   # test_… or prod_…
+#
+# Optional B2Brouter settings (not secret):
+# B2BROUTER_ACCOUNT_ID = "12345"
+# B2BROUTER_API_VERSION = "2026-06-26"
