@@ -7,7 +7,7 @@
 
 export const features = {
   /** Show the Peppol e-invoicing panel on the invoice preview step */
-  peppol: false,
+  peppol: true,
 
   /** Show the DICO/NLCIUS XML export button */
   xmlExport: true,
