@@ -53,7 +53,7 @@ export default function LandingPage({ onLogin, onRegister }) {
           </a>
 
           {/* ── Feature highlights ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '12px', marginTop: '40px', textAlign: 'left' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px', marginTop: '40px', textAlign: 'left' }}>
             {[
               {
                 t: 'BTW verlegd & G-rekening',

@@ -90,18 +90,18 @@ export default function InvoiceHistory({
                       })()}
                     </div>
                     <div style={{ fontSize: '13px', color: 'var(--tm)', marginTop: '3px' }}>
-                      {fmtDate(inv.date)} &nbsp;|&nbsp; {inv.project?.projectNaam || '—'} &nbsp;|&nbsp;
-                      <span style={{ color: 'var(--ac)', fontWeight: 600 }}>{fmt(inv.totals?.totIncl ?? 0)}</span>
+                      {fmtDate(inv.date)}{inv.project?.projectNaam ? <> &nbsp;·&nbsp; {inv.project.projectNaam}</> : null} &nbsp;·&nbsp;
+                      <span style={{ color: 'var(--ac)', fontWeight: 600, fontFamily: 'var(--fm)' }}>{fmt(inv.totals?.totIncl ?? 0)}</span>
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-                    <button onClick={() => onLoad(inv)} style={{ ...btn2, padding: '6px 10px', fontSize: '12px' }} title="Openen">
-                      <EyeIcon />
+                    <button onClick={() => onLoad(inv)} style={{ ...btn2, padding: '6px 10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '5px' }} title="Openen" aria-label="Openen">
+                      <EyeIcon /><span className="btn-txt">Openen</span>
                     </button>
-                    <button onClick={() => onDuplicate(inv)} style={{ ...btn2, padding: '6px 10px', fontSize: '12px' }} title="Dupliceren">
-                      <CopyIcon />
+                    <button onClick={() => onDuplicate(inv)} style={{ ...btn2, padding: '6px 10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '5px' }} title="Kopiëren als nieuwe factuur" aria-label="Kopiëren">
+                      <CopyIcon /><span className="btn-txt">Kopiëren</span>
                     </button>
-                    <button onClick={() => onDelete(inv.id)} style={{ ...btn2, padding: '6px 10px', fontSize: '12px', color: 'var(--dn)', borderColor: 'var(--dn)' }} title="Verwijderen">
+                    <button onClick={() => onDelete(inv.id)} style={{ ...btn2, padding: '6px 10px', fontSize: '12px', color: 'var(--dn)', borderColor: 'var(--dn)' }} title="Verwijderen" aria-label="Verwijderen">
                       <TrashIcon />
                     </button>
                   </div>

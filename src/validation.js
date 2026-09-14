@@ -31,9 +31,16 @@ export function isValidIban(iban) {
  *   (Belastingdienst factuurvereisten / verleggingsregeling / Wka)
  * - warnings: items that are recommended but not strictly required
  */
+/**
+ * Returns { errors, warnings } as plain strings (kept for existing callers)
+ * plus { errorItems, warningItems } with { msg, step } so the UI can jump
+ * to the step where the fix lives (0 profiel, 1 klant, 2 regels).
+ */
 export function checkInvoice({ oa, og, project, lines, btwVerlegd, useGrek }) {
-  const errors = [];
-  const warnings = [];
+  const errorItems = [];
+  const warningItems = [];
+  const errors = { push: (msg, step = 0) => errorItems.push({ msg, step }) };
+  const warnings = { push: (msg, step = 0) => warningItems.push({ msg, step }) };
 
   // ── Eigen gegevens (verplicht op elke factuur) ──
   if (!oa.naam) errors.push('Eigen bedrijfsnaam ontbreekt');
@@ -44,35 +51,40 @@ export function checkInvoice({ oa, og, project, lines, btwVerlegd, useGrek }) {
   else if (!isValidIban(oa.iban)) errors.push('IBAN is ongeldig (controlegetal klopt niet)');
 
   // ── Opdrachtgever ──
-  if (!og.naam) errors.push('Naam opdrachtgever ontbreekt');
-  if (!og.adres || !og.postcode || !og.plaats) errors.push('Adres opdrachtgever onvolledig');
+  if (!og.naam) errors.push('Naam opdrachtgever ontbreekt', 1);
+  if (!og.adres || !og.postcode || !og.plaats) errors.push('Adres opdrachtgever onvolledig', 1);
 
   // ── Verleggingsregeling: BTW-nummer afnemer is verplicht ──
   if (btwVerlegd && !og.btw) {
-    errors.push('BTW verlegd vereist het BTW-nummer van de opdrachtgever op de factuur');
+    errors.push('BTW verlegd vereist het BTW-nummer van de opdrachtgever op de factuur', 1);
   }
 
   // ── Factuurgegevens ──
-  if (!project.factuurnummer) errors.push('Factuurnummer ontbreekt');
-  if (!project.factuurdatum) errors.push('Factuurdatum ontbreekt');
+  if (!project.factuurnummer) errors.push('Factuurnummer ontbreekt', 2);
+  if (!project.factuurdatum) errors.push('Factuurdatum ontbreekt', 2);
 
   // ── Regels ──
   const hasAmount = lines.some((l) => parseFloat(l.bedrag) > 0);
-  if (!hasAmount) errors.push('Geen factuurregels met een bedrag');
+  if (!hasAmount) errors.push('Geen factuurregels met een bedrag', 2);
   if (lines.some((l) => parseFloat(l.bedrag) > 0 && !l.omschrijving)) {
-    errors.push('Eén of meer regels missen een omschrijving (aard van de dienst is verplicht)');
+    errors.push('Eén of meer regels missen een omschrijving (aard van de dienst is verplicht)', 2);
   }
 
   // ── Wka / G-rekening ──
   if (useGrek) {
     if (!oa.gRekening) errors.push('G-rekening IBAN ontbreekt terwijl G-rekening splitsing aanstaat');
     else if (!isValidIban(oa.gRekening)) errors.push('G-rekening IBAN is ongeldig');
-    if (!project.contractNummer) warnings.push('Kenmerk overeenkomst (contractnummer) aanbevolen voor Wka-administratie');
-    if (!project.projectNaam) warnings.push('Benaming werk (projectnaam) aanbevolen voor Wka-administratie');
+    if (!project.contractNummer) warnings.push('Kenmerk overeenkomst (contractnummer) aanbevolen voor Wka-administratie', 2);
+    if (!project.projectNaam) warnings.push('Benaming werk (projectnaam) aanbevolen voor Wka-administratie', 2);
   }
 
   // ── Overig ──
-  if (!og.kvk) warnings.push('KvK-nummer opdrachtgever aanbevolen voor Wka-administratie');
+  if (!og.kvk) warnings.push('KvK-nummer opdrachtgever aanbevolen voor Wka-administratie', 1);
 
-  return { errors, warnings };
+  return {
+    errors: errorItems.map((e) => e.msg),
+    warnings: warningItems.map((w) => w.msg),
+    errorItems,
+    warningItems,
+  };
 }

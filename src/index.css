@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap');
 
 :root {
   --bg: #F5F6F8;
@@ -12,7 +12,9 @@
   --abg: rgba(217, 119, 6, 0.06);
   --dn: #DC2626;
   --ok: #16A34A;
-  --fn: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
+  /* Sans for reading, mono only where aligned digits help (numbers, IBAN, KvK, brand) */
+  --fn: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --fm: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace;
 }
 
 *, *::before, *::after {
@@ -53,6 +55,50 @@ button {
 
 button:hover {
   opacity: 0.85;
+}
+
+button:focus-visible, a:focus-visible, [role="button"]:focus-visible {
+  outline: 2px solid var(--ac);
+  outline-offset: 2px;
+}
+
+/* ── Layout helpers (media queries can't live in inline styles) ── */
+.app-header {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 8px; flex-wrap: wrap; margin-bottom: 12px;
+}
+
+.line-head, .line-row {
+  display: grid;
+  grid-template-columns: 2fr 90px 70px 80px 96px 32px;
+  gap: 6px;
+  align-items: center;
+}
+.line-head { padding: 5px 0; border-bottom: 1px solid var(--bd); margin-bottom: 6px; }
+.line-row { margin-bottom: 6px; }
+.line-row .line-del { justify-self: end; }
+.line-row .line-lbl { display: none; }
+
+@media (max-width: 640px) {
+  .line-head { display: none; }
+  .line-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 10px;
+    background: var(--sf);
+    border: 1px solid var(--bd);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    position: relative;
+  }
+  .line-row .line-desc { grid-column: 1 / -1; }
+  .line-row .line-lbl { display: block; }
+  .line-row .line-del {
+    position: absolute; top: 6px; right: 6px;
+  }
+  .line-row .line-desc input { padding-right: 34px; }
+  .step-labels span { font-size: 10px !important; letter-spacing: .02em !important; }
+  .btn-txt { display: none; }
 }
 
 ::-webkit-scrollbar {

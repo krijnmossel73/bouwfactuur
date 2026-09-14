@@ -9,7 +9,7 @@ import { getAccount, openPortal } from './billing.js';
 import { TRADE_PERCENTAGES, BLANK_OA, BLANK_OG, BLANK_PROJECT, BLANK_LINE } from './constants.js';
 import { fmt, fmtDate, calcVerval, makeInvoiceNumber, calcTotals } from './utils.js';
 import { PlusIcon, TrashIcon, FileIcon, EyeIcon, BldgIcon, SaveIcon, DownIcon, ListIcon, LogoIcon } from './Icons.jsx';
-import { inp, sel, lbl, btn1, btn2, sec, g2, full, crd, chk, nfo, sinp } from './styles.js';
+import { inp, sel, lbl, btn1, btn2, sec, g2, full, crd, chk, nfo, sinp, num } from './styles.js';
 import InvoicePDF from './InvoicePDF.jsx';
 import InvoiceHistory from './InvoiceHistory.jsx';
 import ViesButton from './ViesButton.jsx';
@@ -49,7 +49,9 @@ export default function App() {
   const [authModal, setAuthModal] = useState(null); // null | 'login' | 'register' | 'newPassword'
   const [account, setAccount] = useState(null); // /api/account payload or null
   const [paywall, setPaywall] = useState(false);
-  const [peppol, setPeppol] = useState(null); // { invoiceId, state, stateLabel, sandbox, sentAt } after a Peppol send
+  const [peppol, setPeppol] = useState(null);
+  const [showChecks, setShowChecks] = useState(false); // compliance panel expanded?
+  const [acctMenu, setAcctMenu] = useState(false); // { invoiceId, state, stateLabel, sandbox, sentAt } after a Peppol send
 
   const gPerc = customGPerc !== null ? customGPerc : (TRADE_PERCENTAGES[oa.trade] || 40);
   const totals = calcTotals(lines, btwVerlegd, useGrek, gPerc, btwTarief);
@@ -449,7 +451,7 @@ export default function App() {
         background: 'linear-gradient(135deg, var(--sf) 0%, var(--bg) 100%)',
         borderBottom: '1px solid var(--bd)', padding: '14px 20px 12px',
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+        <div className="app-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{
               width: '28px', height: '28px', background: 'var(--ac)', borderRadius: '5px',
@@ -457,25 +459,37 @@ export default function App() {
             }}>
               <LogoIcon />
             </div>
-            <div style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '.05em', color: 'var(--ac)' }}>
+            <div style={{ fontFamily: 'var(--fm)', fontSize: '18px', fontWeight: 700, letterSpacing: '.05em', color: 'var(--ac)' }}>
               BOUWFACTUUR
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {user && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: 'var(--abg)', borderRadius: '4px', border: '1px solid var(--bd)' }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--tm)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
-                <span style={{ fontSize: '12px', color: 'var(--tm)', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</span>
-                {account?.plan === 'pro' && (
-                  <span style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '.08em', padding: '2px 6px', borderRadius: '8px', background: 'rgba(22,163,74,.12)', color: 'var(--ok)', border: '1px solid rgba(22,163,74,.4)' }}>PRO</span>
-                )}
-                <span
-                  title="Cloudopslag — uw gegevens zijn beschikbaar op al uw apparaten"
-                  style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '.05em', color: 'var(--ok)' }}
+              <div style={{ position: 'relative' }}>
+                <button
+                  onClick={() => setAcctMenu((v) => !v)}
+                  title={user.email}
+                  aria-haspopup="menu"
+                  aria-expanded={acctMenu}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 10px', background: 'var(--abg)', borderRadius: '6px', border: '1px solid var(--bd)', cursor: 'pointer', fontFamily: 'var(--fn)' }}
                 >
-                  ☁
-                </span>
-                <button onClick={logout} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', color: 'var(--dn)', marginLeft: '2px', padding: 0 }} title="Uitloggen">✕</button>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--tm)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                  <span style={{ fontSize: '12px', color: 'var(--tm)', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</span>
+                  {account?.plan === 'pro' && (
+                    <span style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '.08em', padding: '2px 6px', borderRadius: '8px', background: 'rgba(22,163,74,.12)', color: 'var(--ok)', border: '1px solid rgba(22,163,74,.4)' }}>PRO</span>
+                  )}
+                  <span style={{ fontSize: '10px', color: 'var(--tm)' }}>▾</span>
+                </button>
+                {acctMenu && (
+                  <div role="menu" style={{ position: 'absolute', right: 0, top: 'calc(100% + 4px)', minWidth: '220px', background: 'var(--sf)', border: '1px solid var(--bd)', borderRadius: '8px', boxShadow: '0 6px 20px rgba(0,0,0,.08)', zIndex: 50, padding: '6px' }}>
+                    <div style={{ padding: '6px 10px', fontSize: '12px', color: 'var(--tm)', wordBreak: 'break-all' }}>{user.email}</div>
+                    <div style={{ padding: '4px 10px 8px', fontSize: '12px', color: 'var(--ok)' }}>☁ Gegevens staan in de cloud, op al uw apparaten</div>
+                    {account?.billingEnabled && account?.plan === 'free' && (
+                      <button onClick={() => { setAcctMenu(false); setPaywall(true); }} style={{ ...btn2, width: '100%', padding: '8px 10px', fontSize: '13px', textAlign: 'left', marginBottom: '4px' }}>Upgrade naar Pro</button>
+                    )}
+                    <button onClick={() => { setAcctMenu(false); logout(); }} style={{ ...btn2, width: '100%', padding: '8px 10px', fontSize: '13px', textAlign: 'left', color: 'var(--dn)', borderColor: 'rgba(220,38,38,.35)' }}>Uitloggen</button>
+                  </div>
+                )}
               </div>
             )}
             <button onClick={() => setView('history')} style={{ ...btn2, padding: '6px 10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '5px' }}>
@@ -485,17 +499,17 @@ export default function App() {
         </div>
 
         {/* Free plan usage */}
-        {account?.billingEnabled && account?.plan === 'free' && (
+        {account?.billingEnabled && account?.plan === 'free' && step === 3 && (
           <div style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px',
-            padding: '7px 12px', marginBottom: '10px', borderRadius: '6px', fontSize: '12px',
-            background: atFreeLimit ? 'rgba(220,38,38,.07)' : 'var(--abg)',
-            border: `1px solid ${atFreeLimit ? 'rgba(220,38,38,.3)' : 'var(--bd)'}`,
-            color: atFreeLimit ? 'var(--dn)' : 'var(--tm)',
+            padding: '7px 12px', marginBottom: '10px', borderRadius: '6px', fontSize: '13px',
+            background: 'var(--abg)',
+            border: '1px solid rgba(245,158,11,.35)',
+            color: 'var(--tx)',
           }}>
             <span>
               {atFreeLimit
-                ? 'Uw gratis facturen zijn gebruikt — upgrade om verder te factureren.'
+                ? 'Uw 2 gratis facturen zijn opgeslagen. PDF en XML blijven werken; om nieuwe facturen op te slaan is Pro nodig.'
                 : `Gratis plan: nog ${Math.max(0, (account.freeLimit ?? 2) - (account.invoicesCreated ?? 0))} van ${account.freeLimit ?? 2} facturen.`}
             </span>
             <button onClick={() => setPaywall(true)} style={{ ...btn1, padding: '4px 10px', fontSize: '11px', flexShrink: 0 }}>
@@ -514,10 +528,10 @@ export default function App() {
             }} />
           ))}
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '5px' }}>
+        <div className="step-labels" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '5px' }}>
           {STEPS.map((s, i) => (
             <span key={i} onClick={() => setStep(i)} style={{
-              fontSize: '11px', letterSpacing: '.08em', textTransform: 'uppercase',
+              fontFamily: 'var(--fm)', fontSize: '12px', letterSpacing: '.06em', textTransform: 'uppercase',
               color: i === step ? 'var(--ac)' : 'var(--tm)',
               fontWeight: i === step ? 600 : 400, cursor: 'pointer',
             }}>
@@ -534,26 +548,26 @@ export default function App() {
         {step === 0 && (
           <div>
             <div style={sec}><BldgIcon /> Uw bedrijfsgegevens</div>
-            {profLoaded && <div style={{ ...nfo, marginBottom: '12px' }}>Profiel geladen uit opslag.</div>}
             <div style={g2}>
               <div style={full}><span style={lbl}>Bedrijfsnaam</span><input style={inp} value={oa.naam} onChange={(e) => setOa({ ...oa, naam: e.target.value })} placeholder="Bouwbedrijf Jansen B.V." /></div>
               <div style={full}><span style={lbl}>Adres</span><input style={inp} value={oa.adres} onChange={(e) => setOa({ ...oa, adres: e.target.value })} placeholder="Bouwstraat 12" /></div>
               <div><span style={lbl}>Postcode</span><input style={inp} value={oa.postcode} onChange={(e) => setOa({ ...oa, postcode: e.target.value })} placeholder="1234 AB" /></div>
               <div><span style={lbl}>Plaats</span><input style={inp} value={oa.plaats} onChange={(e) => setOa({ ...oa, plaats: e.target.value })} placeholder="Purmerend" /></div>
-              <div><span style={lbl}>KvK-nummer</span><input style={inp} value={oa.kvk} onChange={(e) => setOa({ ...oa, kvk: e.target.value })} placeholder="12345678" /><KvkButton kvkValue={oa.kvk} onResult={(c) => {
+              <div><span style={lbl}>KvK-nummer</span><input style={{ ...inp, ...num }} value={oa.kvk} onChange={(e) => setOa({ ...oa, kvk: e.target.value })} placeholder="12345678" /><KvkButton kvkValue={oa.kvk} onResult={(c) => {
                 if (c.naam && !oa.naam) setOa((p) => ({ ...p, naam: c.naam }));
                 if (c.adres && !oa.adres) setOa((p) => ({ ...p, adres: c.adres }));
                 if (c.postcode && !oa.postcode) setOa((p) => ({ ...p, postcode: c.postcode }));
                 if (c.plaats && !oa.plaats) setOa((p) => ({ ...p, plaats: c.plaats }));
               }} /></div>
-              <div><span style={lbl}>BTW-nummer</span><input style={inp} value={oa.btw} onChange={(e) => setOa({ ...oa, btw: e.target.value })} placeholder="NL123456789B01" /><ViesButton btwValue={oa.btw} /></div>
-              <div><span style={lbl}>IBAN (normaal)</span><input style={inp} value={oa.iban} onChange={(e) => setOa({ ...oa, iban: e.target.value })} placeholder="NL91ABNA0417164300" /></div>
-              <div><span style={lbl}>G-rekening IBAN</span><input style={inp} value={oa.gRekening} onChange={(e) => setOa({ ...oa, gRekening: e.target.value })} placeholder="NL91ABNA0990000000" /></div>
+              <div><span style={lbl}>BTW-nummer</span><input style={{ ...inp, ...num }} value={oa.btw} onChange={(e) => setOa({ ...oa, btw: e.target.value })} placeholder="NL123456789B01" /><ViesButton btwValue={oa.btw} /></div>
+              <div><span style={lbl}>IBAN (normaal)</span><input style={{ ...inp, ...num }} value={oa.iban} onChange={(e) => setOa({ ...oa, iban: e.target.value })} placeholder="NL91ABNA0417164300" /></div>
+              <div><span style={lbl}>G-rekening IBAN</span><input style={{ ...inp, ...num }} value={oa.gRekening} onChange={(e) => setOa({ ...oa, gRekening: e.target.value })} placeholder="NL91ABNA0990000000" /></div>
               <div style={full}>
                 <span style={lbl}>Vakgebied</span>
                 <select style={sel} value={oa.trade} onChange={(e) => { setOa({ ...oa, trade: e.target.value }); setCustomGPerc(null); }}>
                   {Object.entries(TRADE_PERCENTAGES).map(([t, p]) => <option key={t} value={t}>{t} ({p}%)</option>)}
                 </select>
+                <div style={{ fontSize: '12px', color: 'var(--tm)', marginTop: '4px', lineHeight: 1.5 }}>Het percentage is het deel van de arbeidskosten dat standaard op de G-rekening wordt gestort (richtlijn Bouwend Nederland). Per factuur aan te passen.</div>
               </div>
             </div>
             <button onClick={saveProfile} style={{ ...btn1, marginTop: '12px', display: 'flex', alignItems: 'center', gap: '6px', width: '100%', justifyContent: 'center' }}>
@@ -581,13 +595,13 @@ export default function App() {
               <div style={full}><span style={lbl}>Adres</span><input style={inp} value={og.adres} onChange={(e) => setOg({ ...og, adres: e.target.value })} placeholder="Industrieweg 45" /></div>
               <div><span style={lbl}>Postcode</span><input style={inp} value={og.postcode} onChange={(e) => setOg({ ...og, postcode: e.target.value })} placeholder="5678 CD" /></div>
               <div><span style={lbl}>Plaats</span><input style={inp} value={og.plaats} onChange={(e) => setOg({ ...og, plaats: e.target.value })} placeholder="Rotterdam" /></div>
-              <div><span style={lbl}>KvK-nummer</span><input style={inp} value={og.kvk} onChange={(e) => setOg({ ...og, kvk: e.target.value })} placeholder="87654321" /><KvkButton kvkValue={og.kvk} onResult={(c) => {
+              <div><span style={lbl}>KvK-nummer</span><input style={{ ...inp, ...num }} value={og.kvk} onChange={(e) => setOg({ ...og, kvk: e.target.value })} placeholder="87654321" /><KvkButton kvkValue={og.kvk} onResult={(c) => {
                 if (c.naam && !og.naam) setOg((p) => ({ ...p, naam: c.naam }));
                 if (c.adres && !og.adres) setOg((p) => ({ ...p, adres: c.adres }));
                 if (c.postcode && !og.postcode) setOg((p) => ({ ...p, postcode: c.postcode }));
                 if (c.plaats && !og.plaats) setOg((p) => ({ ...p, plaats: c.plaats }));
               }} /></div>
-              <div><span style={lbl}>BTW-nummer</span><input style={inp} value={og.btw} onChange={(e) => setOg({ ...og, btw: e.target.value })} placeholder="NL987654321B01" /><ViesButton btwValue={og.btw} onResult={(r) => {
+              <div><span style={lbl}>BTW-nummer</span><input style={{ ...inp, ...num, ...(btwVerlegd && !og.btw ? { borderColor: 'var(--ac)' } : {}) }} value={og.btw} onChange={(e) => setOg({ ...og, btw: e.target.value })} placeholder="NL987654321B01" />{btwVerlegd && !og.btw && <div style={{ fontSize: '12px', color: 'var(--acd)', marginTop: '4px' }}>Verplicht bij BTW verlegd.</div>}<ViesButton btwValue={og.btw} onResult={(r) => {
                 if (r.name && !og.naam) setOg((prev) => ({ ...prev, naam: r.name }));
                 if (r.address && !og.adres) {
                   // VIES returns address as single string — try to split
@@ -640,9 +654,9 @@ export default function App() {
           <div>
             <div style={sec}><FileIcon /> Project & Factuurregels</div>
             <div style={g2}>
-              <div><span style={lbl}>Factuurnummer</span><input style={inp} value={project.factuurnummer} onChange={(e) => setProject({ ...project, factuurnummer: e.target.value })} /></div>
+              <div><span style={lbl}>Factuurnummer</span><input style={{ ...inp, ...num }} value={project.factuurnummer} onChange={(e) => setProject({ ...project, factuurnummer: e.target.value })} /></div>
               <div><span style={lbl}>Factuurdatum</span><input type="date" style={inp} value={project.factuurdatum} onChange={(e) => setProject({ ...project, factuurdatum: e.target.value })} /></div>
-              <div><span style={lbl}>Contractnummer</span><input style={inp} value={project.contractNummer} onChange={(e) => setProject({ ...project, contractNummer: e.target.value })} placeholder="CTR-2026-001" /></div>
+              <div><span style={lbl}>Contractnummer</span><input style={{ ...inp, ...num }} value={project.contractNummer} onChange={(e) => setProject({ ...project, contractNummer: e.target.value })} placeholder="CTR-2026-001" /></div>
               <div><span style={lbl}>Betaaltermijn (dgn)</span><input type="number" style={inp} value={project.betaaltermijn} onChange={(e) => setProject({ ...project, betaaltermijn: parseInt(e.target.value) || 30 })} />
                 {verval && <span style={{ fontSize: '12px', color: 'var(--tm)', marginTop: '3px', display: 'block' }}>Vervaldatum: {fmtDate(verval)}</span>}
               </div>
@@ -652,20 +666,35 @@ export default function App() {
             {/* Line items */}
             <div style={{ marginTop: '18px' }}>
               <div style={{ ...sec, fontSize: '13px' }}>Regels</div>
-              <div style={{ overflowX: 'auto' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 78px 66px 66px 86px 30px', gap: '5px', padding: '5px 0', borderBottom: '1px solid var(--bd)', marginBottom: '5px', minWidth: '480px' }}>
+              <div>
+                <div className="line-head">
                   <span style={lbl}>Omschrijving</span><span style={lbl}>Type</span><span style={lbl}>Uren</span><span style={lbl}>Tarief</span><span style={lbl}>Bedrag</span><span />
                 </div>
                 {lines.map((l, i) => (
-                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 78px 66px 66px 86px 30px', gap: '5px', alignItems: 'center', marginBottom: '4px', minWidth: '480px' }}>
-                    <input style={sinp} value={l.omschrijving} onChange={(e) => updateLine(i, 'omschrijving', e.target.value)} placeholder="Metselwerk verd. 3" />
-                    <select style={{ ...sel, padding: '8px 5px', fontSize: '12px', paddingRight: '20px', backgroundPosition: 'right 4px center' }} value={l.type} onChange={(e) => updateLine(i, 'type', e.target.value)}>
-                      <option value="arbeid">Arbeid</option><option value="materiaal">Mat.</option>
-                    </select>
-                    <input type="number" style={sinp} value={l.uren} onChange={(e) => updateLine(i, 'uren', e.target.value)} placeholder="0" />
-                    <input type="number" style={sinp} value={l.tarief} onChange={(e) => updateLine(i, 'tarief', e.target.value)} placeholder="0.00" />
-                    <input type="number" style={sinp} value={l.bedrag} onChange={(e) => updateLine(i, 'bedrag', e.target.value)} placeholder="0.00" />
-                    <button onClick={() => removeLine(i)} style={{ background: 'none', border: 'none', color: 'var(--tm)', cursor: 'pointer', padding: '3px' }}><TrashIcon /></button>
+                  <div key={i} className="line-row">
+                    <div className="line-desc">
+                      <span className="line-lbl" style={lbl}>Omschrijving</span>
+                      <input style={sinp} value={l.omschrijving} onChange={(e) => updateLine(i, 'omschrijving', e.target.value)} placeholder="Metselwerk verd. 3" />
+                    </div>
+                    <div>
+                      <span className="line-lbl" style={lbl}>Type</span>
+                      <select style={{ ...sel, padding: '8px 6px', fontSize: '13px', paddingRight: '22px', backgroundPosition: 'right 6px center' }} value={l.type} onChange={(e) => updateLine(i, 'type', e.target.value)}>
+                        <option value="arbeid">Arbeid</option><option value="materiaal">Materiaal</option>
+                      </select>
+                    </div>
+                    <div>
+                      <span className="line-lbl" style={lbl}>Uren</span>
+                      <input type="number" inputMode="decimal" style={{ ...sinp, ...num }} value={l.uren} onChange={(e) => updateLine(i, 'uren', e.target.value)} placeholder="0" />
+                    </div>
+                    <div>
+                      <span className="line-lbl" style={lbl}>Tarief</span>
+                      <input type="number" inputMode="decimal" style={{ ...sinp, ...num }} value={l.tarief} onChange={(e) => updateLine(i, 'tarief', e.target.value)} placeholder="0.00" />
+                    </div>
+                    <div>
+                      <span className="line-lbl" style={lbl}>Bedrag</span>
+                      <input type="number" inputMode="decimal" style={{ ...sinp, ...num }} value={l.bedrag} onChange={(e) => updateLine(i, 'bedrag', e.target.value)} placeholder="0.00" />
+                    </div>
+                    <button className="line-del" onClick={() => removeLine(i)} title="Regel verwijderen" aria-label="Regel verwijderen" style={{ background: 'none', border: 'none', color: 'var(--tm)', cursor: 'pointer', padding: '3px' }}><TrashIcon /></button>
                   </div>
                 ))}
               </div>
@@ -676,7 +705,7 @@ export default function App() {
 
             {/* Totals card */}
             <div style={{ ...crd, marginTop: '16px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '3px 18px', fontSize: '14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '3px 18px', fontSize: '14px', fontVariantNumeric: 'tabular-nums' }}>
                 <span style={{ color: 'var(--tm)' }}>Arbeid:</span><span style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(totals.arbeid)}</span>
                 <span style={{ color: 'var(--tm)' }}>Materiaal:</span><span style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(totals.materiaal)}</span>
                 <span style={{ color: 'var(--tm)' }}>Subtotaal excl. BTW:</span><span style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(totals.sub)}</span>
@@ -687,7 +716,7 @@ export default function App() {
                 <div style={{ gridColumn: '1/-1', borderTop: '1px solid var(--bd)', margin: '2px 0' }} />
                 <span style={{ fontWeight: 700, fontSize: '16px' }}>Totaal:</span>
                 <span style={{ textAlign: 'right', fontWeight: 700, fontSize: '16px', color: 'var(--ac)' }}>{fmt(totals.totIncl)}</span>
-                {useGrek && <>
+                {useGrek && totals.sub > 0 && <>
                   <div style={{ gridColumn: '1/-1', borderTop: '1px dashed var(--bd)', margin: '2px 0' }} />
                   <span style={{ color: 'var(--tm)', fontSize: '13px' }}>→ G-rek ({gPerc}% × arbeid):</span>
                   <span style={{ textAlign: 'right', fontSize: '13px', color: 'var(--ac)' }}>{fmt(totals.gSplit)}</span>
@@ -704,35 +733,61 @@ export default function App() {
           <div>
             <div style={sec}><EyeIcon /> Factuurvoorbeeld</div>
 
-            {/* Compliance check */}
-            {(compliance.errors.length > 0 || compliance.warnings.length > 0) ? (
-              <div style={{ marginBottom: '14px' }}>
-                {compliance.errors.length > 0 && (
-                  <div style={{ padding: '10px 14px', background: 'rgba(220,38,38,.08)', border: '1px solid rgba(220,38,38,.3)', borderRadius: '6px', marginBottom: '8px' }}>
-                    <div style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--dn)', marginBottom: '5px' }}>
-                      Factuur niet compleet ({compliance.errors.length})
-                    </div>
-                    {compliance.errors.map((e, i) => (
-                      <div key={i} style={{ fontSize: '13px', color: 'var(--tx)', lineHeight: 1.7 }}>• {e}</div>
-                    ))}
+            {/* Compliance check: one line by default, expand for details, click an item to jump to it */}
+            {(() => {
+              const nErr = compliance.errorItems.length;
+              const nWarn = compliance.warningItems.length;
+              if (nErr === 0 && nWarn === 0) {
+                return (
+                  <div style={{ padding: '10px 14px', background: 'rgba(22,163,74,.08)', border: '1px solid rgba(22,163,74,.3)', borderRadius: '6px', marginBottom: '14px', fontSize: '13px', color: 'var(--ok)', fontWeight: 600 }}>
+                    ✓ Voldoet aan factuurvereisten Belastingdienst{useGrek ? ' en Wka' : ''}
                   </div>
-                )}
-                {compliance.warnings.length > 0 && (
-                  <div style={{ padding: '10px 14px', background: 'var(--abg)', border: '1px solid rgba(245,158,11,.3)', borderRadius: '6px' }}>
-                    <div style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ac)', marginBottom: '5px' }}>
-                      Aanbevolen ({compliance.warnings.length})
+                );
+              }
+              const summary = nErr > 0
+                ? `${nErr} verplicht${nErr === 1 ? ' veld ontbreekt' : 'e velden ontbreken'}${nWarn ? `, ${nWarn} aanbevolen` : ''}`
+                : `Compleet. ${nWarn} aanbevolen ${nWarn === 1 ? 'veld' : 'velden'} nog leeg`;
+              const color = nErr > 0 ? 'var(--dn)' : 'var(--acd)';
+              const border = nErr > 0 ? 'rgba(220,38,38,.3)' : 'rgba(245,158,11,.35)';
+              const bg = nErr > 0 ? 'rgba(220,38,38,.06)' : 'var(--abg)';
+              const item = (it, key, muted) => (
+                <button
+                  key={key}
+                  onClick={() => setStep(it.step)}
+                  style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '3px 0', fontSize: '13px', lineHeight: 1.6, color: muted ? 'var(--tm)' : 'var(--tx)', fontFamily: 'var(--fn)', cursor: 'pointer' }}
+                >
+                  • {it.msg} <span style={{ color: 'var(--ac)', fontSize: '12px' }}>→ {STEPS[it.step]}</span>
+                </button>
+              );
+              return (
+                <div style={{ marginBottom: '14px', padding: '10px 14px', background: bg, border: `1px solid ${border}`, borderRadius: '6px' }}>
+                  <button
+                    onClick={() => setShowChecks((v) => !v)}
+                    aria-expanded={showChecks}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: 'none', border: 'none', padding: 0, fontFamily: 'var(--fn)', fontSize: '13px', fontWeight: 600, color, cursor: 'pointer', textAlign: 'left' }}
+                  >
+                    <span>{summary}</span>
+                    <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--tm)' }}>{showChecks ? 'Verberg' : 'Toon'} ▾</span>
+                  </button>
+                  {showChecks && (
+                    <div style={{ marginTop: '8px' }}>
+                      {nErr > 0 && (
+                        <div style={{ marginBottom: nWarn ? '8px' : 0 }}>
+                          <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--dn)', marginBottom: '2px' }}>Verplicht</div>
+                          {compliance.errorItems.map((e, i) => item(e, `e${i}`, false))}
+                        </div>
+                      )}
+                      {nWarn > 0 && (
+                        <div>
+                          <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--acd)', marginBottom: '2px' }}>Aanbevolen</div>
+                          {compliance.warningItems.map((w, i) => item(w, `w${i}`, true))}
+                        </div>
+                      )}
                     </div>
-                    {compliance.warnings.map((w, i) => (
-                      <div key={i} style={{ fontSize: '13px', color: 'var(--tm)', lineHeight: 1.7 }}>• {w}</div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div style={{ padding: '10px 14px', background: 'rgba(22,163,74,.08)', border: '1px solid rgba(22,163,74,.3)', borderRadius: '6px', marginBottom: '14px', fontSize: '13px', color: 'var(--ok)', fontWeight: 600 }}>
-                ✓ Voldoet aan factuurvereisten Belastingdienst{useGrek ? ' en Wka' : ''}
-              </div>
-            )}
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Compact in-app preview */}
             <div style={{ background: '#FEFDFB', borderRadius: '8px', padding: '18px', color: '#1A1A1A', fontFamily: "Georgia,serif", fontSize: '13px', lineHeight: 1.5, boxShadow: '0 2px 12px rgba(0,0,0,.1)', border: '1px solid #E5E2DB' }}>
