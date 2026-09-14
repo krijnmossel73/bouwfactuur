@@ -10,6 +10,7 @@
  *   subscriptionStatus, periodEnd,
  *   invoicesCreated, freeLimit,
  *   billingEnabled,             // Stripe configured server-side?
+ *   peppol: { enabled, sandbox } // B2Brouter key present? test_ key?
  *   price: { amount, currency, interval, formatted } | null
  * }
  */
@@ -58,6 +59,10 @@ export async function onRequestGet(context) {
       invoicesCreated: account.invoices_created || 0,
       freeLimit: FREE_INVOICE_LIMIT,
       billingEnabled,
+      peppol: {
+        enabled: Boolean(context.env.B2BROUTER_API_KEY),
+        sandbox: String(context.env.B2BROUTER_API_KEY || '').startsWith('test_'),
+      },
       price: billingEnabled ? await getPrice(context.env) : null,
     });
   } catch (err) {

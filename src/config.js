@@ -6,8 +6,13 @@
  */
 
 export const features = {
-  /** Show the Peppol e-invoicing panel on the invoice preview step */
-  peppol: true,
+  /**
+   * Peppol e-invoicing panel on the invoice preview step.
+   *   'auto'  → shown as soon as B2BROUTER_API_KEY is configured on the server
+   *             (sandbox key: panel shows a test-environment notice)
+   *   true    → always shown (dev), false → never shown
+   */
+  peppol: 'auto',
 
   /** Show the DICO/NLCIUS XML export button */
   xmlExport: true,

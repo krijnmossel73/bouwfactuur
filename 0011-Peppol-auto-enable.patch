@@ -1,0 +1,183 @@
+From f30c3fce01910e147983fd5f0daf137bbc599568 Mon Sep 17 00:00:00 2001
+From: patch <patch@local>
+Date: Mon, 14 Sep 2026 19:19:49 +0000
+Subject: [PATCH] Peppol panel enabled automatically when B2Brouter is
+ configured; sandbox badge; production sends require a complete, saved invoice
+
+---
+ README.md                |  5 ++---
+ functions/api/account.js |  5 +++++
+ src/App.jsx              |  4 +++-
+ src/PeppolPanel.jsx      | 35 +++++++++++++++++++++++++++++++++--
+ src/config.js            |  9 +++++++--
+ 5 files changed, 50 insertions(+), 8 deletions(-)
+
+diff --git a/README.md b/README.md
+index 605dff0..790fb65 100644
+--- a/README.md
++++ b/README.md
+@@ -88,7 +88,7 @@ Non-secret values live in `wrangler.toml` under `[vars]`; secrets are set with `
+ 
+ ### Feature flags
+ 
+-`src/config.js` toggles UI features: `peppol` (off by default), `xmlExport`, `viesValidation`, `kvkLookup`.
++`src/config.js` toggles UI features: `peppol` (`'auto'`: follows whether `B2BROUTER_API_KEY` is set on the server), `xmlExport`, `viesValidation`, `kvkLookup`.
+ 
+ ## Setup
+ 
+@@ -130,7 +130,7 @@ Recipient lookup uses the public Peppol Directory and needs no setup. Sending go
+ 
+ 1. Sign in to B2Brouter, open **Developers** (lightning-bolt icon) and create a **Sandbox**; inside it, create an API key (`test_…`).
+ 2. `npx wrangler pages secret put B2BROUTER_API_KEY --project-name bouwfactuur`
+-3. Set `features.peppol = true` in `src/config.js` and deploy.
++3. Deploy. The Peppol panel appears automatically on the Factuur step as soon as the key is present (`features.peppol` in `src/config.js` is `'auto'`; set it to `true`/`false` to force). With a `test_` key the panel shows a "Testomgeving" badge and drafts may be sent; with a production key an invoice must pass the compliance check and be saved (server-issued number) before the send button is enabled.
+ 4. Send a test invoice. In the sandbox nothing leaves B2Brouter: any recipient reaches `sent → registered`. Optionally add a contact with GLN `9506215594996` (refused) or `9500047420799` (no receiver) to exercise the failure paths.
+ 5. For production, create a `prod_…` key in the normal (non-sandbox) workspace, make sure your company is registered as a Peppol participant there (Connections → Peppol), and replace the secret. Same base URL; the key selects the environment.
+ 
+@@ -234,7 +234,6 @@ public/_routes.json      Routes only /api/* through Functions
+ - [ ] Broader test coverage (XML generator, totals, validation)
+ - [ ] Self-host the web fonts (Google Fonts currently exposes visitor IPs to Google; noted in the privacy statement)
+ - [ ] Server-side PDF generation
+-- [ ] Peppol sending enabled by default once the B2Brouter production key is in place
+ - [ ] Restore view for soft-deleted invoices
+ 
+ ## License
+diff --git a/functions/api/account.js b/functions/api/account.js
+index 7f14d7c..399a2a8 100644
+--- a/functions/api/account.js
++++ b/functions/api/account.js
+@@ -10,6 +10,7 @@
+  *   subscriptionStatus, periodEnd,
+  *   invoicesCreated, freeLimit,
+  *   billingEnabled,             // Stripe configured server-side?
++ *   peppol: { enabled, sandbox } // B2Brouter key present? test_ key?
+  *   price: { amount, currency, interval, formatted } | null
+  * }
+  */
+@@ -58,6 +59,10 @@ export async function onRequestGet(context) {
+       invoicesCreated: account.invoices_created || 0,
+       freeLimit: FREE_INVOICE_LIMIT,
+       billingEnabled,
++      peppol: {
++        enabled: Boolean(context.env.B2BROUTER_API_KEY),
++        sandbox: String(context.env.B2BROUTER_API_KEY || '').startsWith('test_'),
++      },
+       price: billingEnabled ? await getPrice(context.env) : null,
+     });
+   } catch (err) {
+diff --git a/src/App.jsx b/src/App.jsx
+index adf0339..3b7a959 100644
+--- a/src/App.jsx
++++ b/src/App.jsx
+@@ -919,9 +919,11 @@ export default function App() {
+             </div>
+ 
+             {/* Peppol e-Invoicing */}
+-            {features.peppol && (
++            {(features.peppol === true || (features.peppol === 'auto' && account?.peppol?.enabled)) && (
+               <PeppolPanel
+                 key={project.factuurnummer}
++                sandbox={Boolean(account?.peppol?.sandbox)}
++                blockers={compliance.errorItems.map((e) => e.msg)}
+                 recipientKvk={og.kvk}
+                 recipientName={og.naam}
+                 invoiceNumber={project.factuurnummer}
+diff --git a/src/PeppolPanel.jsx b/src/PeppolPanel.jsx
+index 59987ad..f1092f6 100644
+--- a/src/PeppolPanel.jsx
++++ b/src/PeppolPanel.jsx
+@@ -8,7 +8,7 @@ import { peppolLookup, peppolSend, peppolStatus } from './peppol.js';
+ const FINAL_STATES = new Set(['registered', 'accepted', 'refused', 'error', 'paid']);
+ const GOOD_STATES = new Set(['sent', 'registered', 'accepted', 'paid']);
+ 
+-export default function PeppolPanel({ recipientKvk, recipientName, invoiceNumber, savedId, previous, onGenerateXml, onSent }) {
++export default function PeppolPanel({ recipientKvk, recipientName, invoiceNumber, savedId, previous, sandbox = false, blockers = [], onGenerateXml, onSent }) {
+   const [lookupStatus, setLookupStatus] = useState(previous?.invoiceId ? 'found' : 'idle'); // idle | loading | found | notfound | error
+   const [lookupData, setLookupData] = useState(previous?.invoiceId ? { participantId: `0106:${String(recipientKvk || '').replace(/\D/g, '')}` } : null);
+   const [sendStatus, setSendStatus] = useState(previous?.invoiceId ? 'sent' : 'idle'); // idle | loading | sent | error | needsSetup
+@@ -80,7 +80,17 @@ export default function PeppolPanel({ recipientKvk, recipientName, invoiceNumber
+     }
+   };
+ 
++  // Production guards: a real Peppol invoice must be complete and must carry
++  // its definitive (server-issued) number, i.e. be saved first. In the
++  // sandbox nothing is delivered, so drafts may be sent for testing.
++  const sendBlockedReason = !sandbox && blockers.length
++    ? `Factuur is niet compleet (${blockers.length} verplicht${blockers.length === 1 ? ' veld ontbreekt' : 'e velden ontbreken'}). Zie de controle hierboven.`
++    : !sandbox && !savedId
++      ? 'Sla de factuur eerst op: het factuurnummer wordt definitief bij opslaan en mag daarna niet meer wijzigen.'
++      : null;
++
+   const doSend = async () => {
++    if (sendBlockedReason) return;
+     setSendStatus('loading');
+     setSendResult(null);
+ 
+@@ -135,7 +145,20 @@ export default function PeppolPanel({ recipientKvk, recipientName, invoiceNumber
+         }}>
+           Peppol e-Invoicing
+         </span>
++        {sandbox && (
++          <span title="B2Brouter sandbox: facturen verlaten de testomgeving niet" style={{
++            marginLeft: 'auto', fontSize: '11px', fontWeight: 700, letterSpacing: '.06em', padding: '2px 8px', borderRadius: '10px',
++            background: 'rgba(245,158,11,.15)', color: '#92400E', border: '1px solid rgba(245,158,11,.5)',
++          }}>
++            TESTOMGEVING
++          </span>
++        )}
+       </div>
++      {sandbox && sendStatus !== 'sent' && (
++        <div style={{ fontSize: '12px', color: '#92400E', background: 'rgba(245,158,11,.10)', border: '1px solid rgba(245,158,11,.35)', borderRadius: '4px', padding: '6px 10px', marginBottom: '10px', lineHeight: 1.5 }}>
++          Verzenden gebeurt in de B2Brouter-testomgeving: de factuur wordt niet echt bij de opdrachtgever afgeleverd.
++        </div>
++      )}
+ 
+       {/* Lookup section */}
+       {lookupStatus === 'idle' && (
+@@ -175,14 +198,22 @@ export default function PeppolPanel({ recipientKvk, recipientName, invoiceNumber
+           </div>
+ 
+           {/* Send section */}
++          {sendStatus === 'idle' && sendBlockedReason && (
++            <div style={{ marginTop: '10px', fontSize: '12px', color: '#92400E', background: 'rgba(245,158,11,.10)', border: '1px solid rgba(245,158,11,.35)', borderRadius: '4px', padding: '6px 10px', lineHeight: 1.5 }}>
++              {sendBlockedReason}
++            </div>
++          )}
+           {sendStatus === 'idle' && (
+             <button
+               onClick={doSend}
++              disabled={Boolean(sendBlockedReason)}
++              title={sendBlockedReason || undefined}
+               style={{
+                 marginTop: '10px',
+                 background: '#16A34A', color: '#fff', border: 'none',
+                 borderRadius: '5px', padding: '8px 16px', fontSize: '13px',
+-                fontWeight: 600, fontFamily: 'var(--fn)', cursor: 'pointer',
++                fontWeight: 600, fontFamily: 'var(--fn)', cursor: sendBlockedReason ? 'not-allowed' : 'pointer',
++                opacity: sendBlockedReason ? 0.5 : 1,
+                 letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: '6px',
+               }}
+             >
+diff --git a/src/config.js b/src/config.js
+index 4cff2af..12bc739 100644
+--- a/src/config.js
++++ b/src/config.js
+@@ -6,8 +6,13 @@
+  */
+ 
+ export const features = {
+-  /** Show the Peppol e-invoicing panel on the invoice preview step */
+-  peppol: false,
++  /**
++   * Peppol e-invoicing panel on the invoice preview step.
++   *   'auto'  → shown as soon as B2BROUTER_API_KEY is configured on the server
++   *             (sandbox key: panel shows a test-environment notice)
++   *   true    → always shown (dev), false → never shown
++   */
++  peppol: 'auto',
+ 
+   /** Show the DICO/NLCIUS XML export button */
+   xmlExport: true,
+-- 
+2.43.0
+

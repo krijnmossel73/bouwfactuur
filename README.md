@@ -88,7 +88,7 @@ Non-secret values live in `wrangler.toml` under `[vars]`; secrets are set with `
 
 ### Feature flags
 
-`src/config.js` toggles UI features: `peppol` (off by default), `xmlExport`, `viesValidation`, `kvkLookup`.
+`src/config.js` toggles UI features: `peppol` (`'auto'`: follows whether `B2BROUTER_API_KEY` is set on the server), `xmlExport`, `viesValidation`, `kvkLookup`.
 
 ## Setup
 
@@ -130,7 +130,7 @@ Recipient lookup uses the public Peppol Directory and needs no setup. Sending go
 
 1. Sign in to B2Brouter, open **Developers** (lightning-bolt icon) and create a **Sandbox**; inside it, create an API key (`test_…`).
 2. `npx wrangler pages secret put B2BROUTER_API_KEY --project-name bouwfactuur`
-3. Set `features.peppol = true` in `src/config.js` and deploy.
+3. Deploy. The Peppol panel appears automatically on the Factuur step as soon as the key is present (`features.peppol` in `src/config.js` is `'auto'`; set it to `true`/`false` to force). With a `test_` key the panel shows a "Testomgeving" badge and drafts may be sent; with a production key an invoice must pass the compliance check and be saved (server-issued number) before the send button is enabled.
 4. Send a test invoice. In the sandbox nothing leaves B2Brouter: any recipient reaches `sent → registered`. Optionally add a contact with GLN `9506215594996` (refused) or `9500047420799` (no receiver) to exercise the failure paths.
 5. For production, create a `prod_…` key in the normal (non-sandbox) workspace, make sure your company is registered as a Peppol participant there (Connections → Peppol), and replace the secret. Same base URL; the key selects the environment.
 
@@ -234,7 +234,6 @@ public/_routes.json      Routes only /api/* through Functions
 - [ ] Broader test coverage (XML generator, totals, validation)
 - [ ] Self-host the web fonts (Google Fonts currently exposes visitor IPs to Google; noted in the privacy statement)
 - [ ] Server-side PDF generation
-- [ ] Peppol sending enabled by default once the B2Brouter production key is in place
 - [ ] Restore view for soft-deleted invoices
 
 ## License

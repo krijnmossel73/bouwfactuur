@@ -8,7 +8,7 @@ import { peppolLookup, peppolSend, peppolStatus } from './peppol.js';
 const FINAL_STATES = new Set(['registered', 'accepted', 'refused', 'error', 'paid']);
 const GOOD_STATES = new Set(['sent', 'registered', 'accepted', 'paid']);
 
-export default function PeppolPanel({ recipientKvk, recipientName, invoiceNumber, savedId, previous, onGenerateXml, onSent }) {
+export default function PeppolPanel({ recipientKvk, recipientName, invoiceNumber, savedId, previous, sandbox = false, blockers = [], onGenerateXml, onSent }) {
   const [lookupStatus, setLookupStatus] = useState(previous?.invoiceId ? 'found' : 'idle'); // idle | loading | found | notfound | error
   const [lookupData, setLookupData] = useState(previous?.invoiceId ? { participantId: `0106:${String(recipientKvk || '').replace(/\D/g, '')}` } : null);
   const [sendStatus, setSendStatus] = useState(previous?.invoiceId ? 'sent' : 'idle'); // idle | loading | sent | error | needsSetup
@@ -80,7 +80,17 @@ export default function PeppolPanel({ recipientKvk, recipientName, invoiceNumber
     }
   };
 
+  // Production guards: a real Peppol invoice must be complete and must carry
+  // its definitive (server-issued) number, i.e. be saved first. In the
+  // sandbox nothing is delivered, so drafts may be sent for testing.
+  const sendBlockedReason = !sandbox && blockers.length
+    ? `Factuur is niet compleet (${blockers.length} verplicht${blockers.length === 1 ? ' veld ontbreekt' : 'e velden ontbreken'}). Zie de controle hierboven.`
+    : !sandbox && !savedId
+      ? 'Sla de factuur eerst op: het factuurnummer wordt definitief bij opslaan en mag daarna niet meer wijzigen.'
+      : null;
+
   const doSend = async () => {
+    if (sendBlockedReason) return;
     setSendStatus('loading');
     setSendResult(null);
 
@@ -135,7 +145,20 @@ export default function PeppolPanel({ recipientKvk, recipientName, invoiceNumber
         }}>
           Peppol e-Invoicing
         </span>
+        {sandbox && (
+          <span title="B2Brouter sandbox: facturen verlaten de testomgeving niet" style={{
+            marginLeft: 'auto', fontSize: '11px', fontWeight: 700, letterSpacing: '.06em', padding: '2px 8px', borderRadius: '10px',
+            background: 'rgba(245,158,11,.15)', color: '#92400E', border: '1px solid rgba(245,158,11,.5)',
+          }}>
+            TESTOMGEVING
+          </span>
+        )}
       </div>
+      {sandbox && sendStatus !== 'sent' && (
+        <div style={{ fontSize: '12px', color: '#92400E', background: 'rgba(245,158,11,.10)', border: '1px solid rgba(245,158,11,.35)', borderRadius: '4px', padding: '6px 10px', marginBottom: '10px', lineHeight: 1.5 }}>
+          Verzenden gebeurt in de B2Brouter-testomgeving: de factuur wordt niet echt bij de opdrachtgever afgeleverd.
+        </div>
+      )}
 
       {/* Lookup section */}
       {lookupStatus === 'idle' && (
@@ -175,14 +198,22 @@ export default function PeppolPanel({ recipientKvk, recipientName, invoiceNumber
           </div>
 
           {/* Send section */}
+          {sendStatus === 'idle' && sendBlockedReason && (
+            <div style={{ marginTop: '10px', fontSize: '12px', color: '#92400E', background: 'rgba(245,158,11,.10)', border: '1px solid rgba(245,158,11,.35)', borderRadius: '4px', padding: '6px 10px', lineHeight: 1.5 }}>
+              {sendBlockedReason}
+            </div>
+          )}
           {sendStatus === 'idle' && (
             <button
               onClick={doSend}
+              disabled={Boolean(sendBlockedReason)}
+              title={sendBlockedReason || undefined}
               style={{
                 marginTop: '10px',
                 background: '#16A34A', color: '#fff', border: 'none',
                 borderRadius: '5px', padding: '8px 16px', fontSize: '13px',
-                fontWeight: 600, fontFamily: 'var(--fn)', cursor: 'pointer',
+                fontWeight: 600, fontFamily: 'var(--fn)', cursor: sendBlockedReason ? 'not-allowed' : 'pointer',
+                opacity: sendBlockedReason ? 0.5 : 1,
                 letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: '6px',
               }}
             >

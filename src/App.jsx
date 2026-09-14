@@ -919,9 +919,11 @@ export default function App() {
             </div>
 
             {/* Peppol e-Invoicing */}
-            {features.peppol && (
+            {(features.peppol === true || (features.peppol === 'auto' && account?.peppol?.enabled)) && (
               <PeppolPanel
                 key={project.factuurnummer}
+                sandbox={Boolean(account?.peppol?.sandbox)}
+                blockers={compliance.errorItems.map((e) => e.msg)}
                 recipientKvk={og.kvk}
                 recipientName={og.naam}
                 invoiceNumber={project.factuurnummer}
