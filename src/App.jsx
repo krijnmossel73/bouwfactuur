@@ -169,7 +169,7 @@ export default function App() {
     if (!loading && !project.factuurnummer && nextNumber) {
       setProject((p) => ({ ...p, factuurnummer: nextNumber }));
     }
-  }, [loading, nextNumber]);
+  }, [loading, nextNumber]); // eslint-disable-line react-hooks/exhaustive-deps -- only seed an empty field
 
   // ═══════════════════════════════════════════
   //  ACTIONS

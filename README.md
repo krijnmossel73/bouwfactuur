@@ -54,6 +54,8 @@ npm run dev
 
 `npm run dev` runs Vite behind `wrangler pages dev`, so the Pages Functions, the local D1 database and the API proxies all work at http://localhost:8788. `npm run dev:vite` starts the frontend only (http://localhost:5173) without any `/api/*` routes.
 
+Checks: `npm run lint` (ESLint, catches undefined names, unused variables and hook misuse), `npm test` (invoice numbering and webhook smoke tests against SQLite, Node 22+). `npm run build` runs lint first, so a lint error fails the Cloudflare Pages deploy instead of shipping; `npm run build:only` skips it. The same three steps run in GitHub Actions on every push and pull request (`.github/workflows/ci.yml`).
+
 ## Configuration
 
 ### Client (`.env`, build-time)
@@ -220,7 +222,7 @@ public/_routes.json      Routes only /api/* through Functions
 
 ## Roadmap
 
-- [ ] Automated tests (Vitest) and CI
+- [ ] Broader test coverage (XML generator, totals, validation)
 - [ ] Privacy statement, algemene voorwaarden, account deletion
 - [ ] Server-side PDF generation
 - [ ] Peppol sending enabled by default once the B2Brouter production key is in place

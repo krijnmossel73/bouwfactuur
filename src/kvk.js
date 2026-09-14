@@ -15,7 +15,7 @@ import { authHeaders } from './storage.js';
 
 export function validateKvkFormat(kvkNumber) {
   if (!kvkNumber) return { valid: false, message: 'Voer een KvK-nummer in.' };
-  const cleaned = kvkNumber.replace(/[\s.\-]/g, '');
+  const cleaned = kvkNumber.replace(/[\s.-]/g, '');
   if (!/^\d{8}$/.test(cleaned)) {
     return { valid: false, message: 'KvK-nummer moet 8 cijfers zijn.' };
   }
@@ -28,7 +28,7 @@ export function validateKvkFormat(kvkNumber) {
  */
 export async function searchKvK({ kvkNummer, naam }) {
   const params = new URLSearchParams();
-  if (kvkNummer) params.set('kvkNummer', kvkNummer.replace(/[\s.\-]/g, ''));
+  if (kvkNummer) params.set('kvkNummer', kvkNummer.replace(/[\s.-]/g, ''));
   if (naam) params.set('naam', naam);
 
   if (!kvkNummer && !naam) {

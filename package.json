@@ -2,15 +2,17 @@
   "name": "bouwfactuur",
   "private": true,
   "version": "0.1.0",
-  "description": "Compliant Dutch construction invoicing \u2014 BTW verlegd, G-rekening, Wka",
+  "description": "Compliant Dutch construction invoicing — BTW verlegd, G-rekening, Wka",
   "type": "module",
   "scripts": {
     "dev": "npx wrangler pages dev -- npx vite",
     "dev:vite": "vite",
-    "build": "vite build",
+    "build": "npm run lint && vite build",
     "preview": "vite preview",
     "deploy": "npm run build && npx wrangler pages deploy dist --project-name bouwfactuur",
-    "test": "node --no-warnings tests/invoices.test.mjs && node --no-warnings tests/webhook.test.mjs"
+    "test": "node --no-warnings tests/invoices.test.mjs && node --no-warnings tests/webhook.test.mjs",
+    "lint": "eslint .",
+    "build:only": "vite build"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.1",
@@ -19,9 +21,14 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.12.0",
     "vite": "^6.0.0"
   }
 }

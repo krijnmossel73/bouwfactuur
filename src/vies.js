@@ -32,7 +32,7 @@ import { authHeaders } from './storage.js';
 
 export function parseBTW(raw) {
   if (!raw || raw.length < 4) return null;
-  const cleaned = raw.replace(/[\s.\-]/g, '').toUpperCase();
+  const cleaned = raw.replace(/[\s.-]/g, '').toUpperCase();
   const country = cleaned.substring(0, 2);
   const number = cleaned.substring(2);
   if (!/^[A-Z]{2}$/.test(country) || !number) return null;

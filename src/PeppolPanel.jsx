@@ -247,7 +247,7 @@ export default function PeppolPanel({ recipientKvk, recipientName, invoiceNumber
                 B2BROUTER_API_KEY = test_… (sandbox) of prod_… (productie)
               </div>
               <div style={{ marginTop: '6px' }}>
-                Keys vind je in <a href="https://app.b2brouter.net" target="_blank" rel="noopener" style={{ color: '#C2410C' }}>B2Brouter</a> onder Developers → API Keys.
+                Keys vind je in <a href="https://app.b2brouter.net" target="_blank" rel="noopener noreferrer" style={{ color: '#C2410C' }}>B2Brouter</a> onder Developers → API Keys.
               </div>
             </div>
           )}
