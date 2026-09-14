@@ -194,3 +194,11 @@ button:focus-visible, a:focus-visible, [role="button"]:focus-visible {
 .inv-tbl tfoot td {
   border-bottom: none;
 }
+
+/* ── Legal pages ── */
+.legal p, .legal li { font-size: 14px; line-height: 1.75; color: var(--tx); }
+.legal p { margin: 0 0 12px; }
+.legal h2 { font-size: 16px; font-weight: 700; margin: 26px 0 8px; letter-spacing: -.01em; }
+.legal ul { padding-left: 20px; margin: 0 0 12px; }
+.legal li { margin-bottom: 4px; }
+.legal a { color: var(--ac); }

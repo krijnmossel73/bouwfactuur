@@ -16,7 +16,8 @@ Live: https://bouwfactuur.pages.dev
 - **Peppol**: recipient lookup in the Peppol Directory, one-call sending via B2Brouter (Access Point) and delivery-state tracking per invoice; behind a feature flag
 - **VIES validation**: real-time BTW-nummer check against the EC VIES API with auto-fill of name and address
 - **KvK lookup**: company lookup by KvK-nummer via the KvK Zoeken API (free test environment out of the box)
-- **Accounts**: Supabase Auth (email/password and Google); visitors see a public landing page and an explanation page at `#/uitleg`
+- **Accounts**: Supabase Auth (email/password and Google); visitors see a public landing page and an explanation page at `#/uitleg`. Users can delete their account and all data from the history screen
+- **Legal**: privacyverklaring (`#/privacy`) and algemene voorwaarden with a processor clause (`#/voorwaarden`); operator details live in `src/legal.js`
 - **Cloud storage**: company profile, clients and invoices stored per user in Cloudflare D1, available across devices
 - **Invoice numbering**: issued server-side (`JJJJ-NNNN`, sequential per year) at the moment of saving, so two devices can never produce the same number; a custom number is accepted when unused. Saved invoices are immutable; deletion is a soft delete (bewaarplicht) and the number stays reserved
 - **Freemium**: 2 invoices free (lifetime, enforced server-side), then BouwFactuur Pro via Stripe Checkout (iDEAL, card, SEPA) with a customer portal for managing the subscription
@@ -73,6 +74,7 @@ Non-secret values live in `wrangler.toml` under `[vars]`; secrets are set with `
 |---|---|---|
 | `SUPABASE_URL` | yes | Used to fetch the JWKS for JWT verification |
 | `SUPABASE_JWT_SECRET` | no | Legacy HS256 secret; takes precedence over JWKS if set |
+| `SUPABASE_SERVICE_ROLE_KEY` | for account deletion | Secret. Admin key used only by `DELETE /api/account` to remove the auth user |
 | `DB` (D1 binding) | yes | Defined in `wrangler.toml` |
 | `STRIPE_PRICE_ID` | for billing | Recurring price ID of "BouwFactuur Pro" |
 | `STRIPE_SECRET_KEY` | for billing | Secret. Enabling this also activates the freemium limit |
@@ -96,6 +98,7 @@ Non-secret values live in `wrangler.toml` under `[vars]`; secrets are set with `
 2. Authentication → URL Configuration: Site URL `https://bouwfactuur.pages.dev`; additional redirect URLs `http://localhost:5173` and `http://localhost:8788`.
 3. For Google login: create an OAuth client ID (Web application) in Google Cloud Console with redirect URI `https://<project-ref>.supabase.co/auth/v1/callback`, then enable the Google provider in Supabase with the client ID and secret.
 4. Put the project URL and publishable key in `.env` (client) and the project URL in `wrangler.toml` as `SUPABASE_URL` (server).
+5. For account deletion: copy the **service_role** key (Project Settings → API) and store it with `npx wrangler pages secret put SUPABASE_SERVICE_ROLE_KEY --project-name bouwfactuur`. Never put this key in `.env` or the client.
 
 ### Cloudflare D1
 
@@ -135,6 +138,10 @@ How a send works: the NLCIUS UBL is posted to `POST /accounts/{id}/invoices/impo
 
 For push updates, add a webhook in B2Brouter (Developers → Webhooks) pointing at `https://bouwfactuur.pages.dev/api/peppol/webhook` for issued-invoice state changes, and store its signature key as `B2BROUTER_WEBHOOK_SECRET`. The receiver verifies `X-B2Brouter-Signature` (HMAC-SHA256 over `t.body`, 10-minute window) and updates the invoice by its B2Brouter id. Sandbox and production need separate webhooks and secrets.
 
+### Legal pages
+
+Fill in `src/legal.js` (handelsnaam, KvK, BTW, adres, contactadres) before going live; the placeholders are rendered verbatim. The texts are a reasonable starting point for a Dutch B2B SaaS but are not legal advice: have them checked, and bump `LEGAL_UPDATED` when you change them.
+
 ## Deploy
 
 Recommended: connect the GitHub repo in Cloudflare Pages (build command `npm run build`, output directory `dist`, Node 18+). Every push to `main` deploys.
@@ -160,6 +167,7 @@ Custom domains are added under Pages → Custom domains; Cloudflare provisions T
 | POST | `/api/invoices/import` | JWT | Restore from backup; existing numbers are skipped |
 | POST | `/api/peppol/webhook` | B2Brouter signature | Delivery-state updates by B2Brouter invoice id |
 | GET | `/api/account` | JWT | Plan, usage and price |
+| DELETE | `/api/account` | JWT | Erase account: D1 rows, Stripe customer (cancels subscription), Supabase user. 503 until `SUPABASE_SERVICE_ROLE_KEY` is set |
 | POST | `/api/billing/checkout` | JWT | Stripe Checkout session URL |
 | POST | `/api/billing/portal` | JWT | Stripe customer portal URL |
 | POST | `/api/billing/webhook` | Stripe signature | Subscription state updates |
@@ -180,6 +188,7 @@ src/
 ├── AuthModal.jsx        Login / register / password reset
 ├── LandingPage.jsx      Public landing page
 ├── Uitleg.jsx           Explanation page (#/uitleg)
+├── Privacy.jsx, Voorwaarden.jsx, LegalPage.jsx, legal.js   Legal pages and operator details
 ├── PaywallModal.jsx     Upgrade prompt on 402
 ├── InvoicePDF.jsx       Print-ready A4 invoice
 ├── InvoiceHistory.jsx   Saved invoices with status
@@ -223,7 +232,7 @@ public/_routes.json      Routes only /api/* through Functions
 ## Roadmap
 
 - [ ] Broader test coverage (XML generator, totals, validation)
-- [ ] Privacy statement, algemene voorwaarden, account deletion
+- [ ] Self-host the web fonts (Google Fonts currently exposes visitor IPs to Google; noted in the privacy statement)
 - [ ] Server-side PDF generation
 - [ ] Peppol sending enabled by default once the B2Brouter production key is in place
 - [ ] Restore view for soft-deleted invoices

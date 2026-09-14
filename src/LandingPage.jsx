@@ -83,7 +83,7 @@ export default function LandingPage({ onLogin, onRegister }) {
 
       {/* ── Footer ── */}
       <div style={{ borderTop: '1px solid var(--bd)', padding: '12px 24px', textAlign: 'center', fontSize: '12px', color: 'var(--tm)' }}>
-        BouwFactuur — facturatie voor de bouwsector · <a href="#/uitleg" style={{ color: 'var(--tm)' }}>Uitleg</a>
+        BouwFactuur — facturatie voor de bouwsector · <a href="#/uitleg" style={{ color: 'var(--tm)' }}>Uitleg</a> · <a href="#/privacy" style={{ color: 'var(--tm)' }}>Privacy</a> · <a href="#/voorwaarden" style={{ color: 'var(--tm)' }}>Voorwaarden</a>
       </div>
     </div>
   );

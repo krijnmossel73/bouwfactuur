@@ -4,6 +4,7 @@ import { BackIcon, PlusIcon, EyeIcon, CopyIcon, TrashIcon, ListIcon, DownIcon } 
 import { btn1, btn2, sec, crd } from './styles.js';
 
 export default function InvoiceHistory({
+  onDeleteAccount,
   invoices, onBack, onNew, onLoad, onDuplicate, onDelete,
   onToggleStatus, onExportBackup, onImportBackup,
   account, onUpgrade, onManageSubscription,
@@ -162,6 +163,17 @@ export default function InvoiceHistory({
           </div>
           <div style={{ fontSize: '12px', color: 'var(--tm)', marginTop: '6px', lineHeight: 1.6 }}>
             Uw gegevens worden veilig in de cloud opgeslagen, gekoppeld aan uw account. Download af en toe een backup voor extra zekerheid.
+            Zie de <a href="#/privacy" style={{ color: 'var(--tm)' }}>privacyverklaring</a> en <a href="#/voorwaarden" style={{ color: 'var(--tm)' }}>algemene voorwaarden</a>.
+          </div>
+
+          <div style={{ marginTop: '22px', paddingTop: '14px', borderTop: '1px dashed var(--bd)' }}>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--tm)', marginBottom: '6px' }}>Account verwijderen</div>
+            <div style={{ fontSize: '12px', color: 'var(--tm)', lineHeight: 1.6, marginBottom: '8px' }}>
+              Verwijdert uw account, profiel, opdrachtgevers en alle facturen definitief, en beëindigt een lopend abonnement. Download eerst een backup: facturen moet u 7 jaar bewaren.
+            </div>
+            <button onClick={onDeleteAccount} style={{ ...btn2, padding: '7px 12px', fontSize: '12px', color: 'var(--dn)', borderColor: 'rgba(220,38,38,.4)' }}>
+              Account en alle gegevens verwijderen
+            </button>
           </div>
         </div>
       </div>

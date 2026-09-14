@@ -1,5 +1,8 @@
 /**
- * GET /api/account — the authenticated user's plan & usage, for the UI.
+ * GET    /api/account — the authenticated user's plan & usage, for the UI.
+ * DELETE /api/account — erase the account: D1 rows (kv, invoices, accounts),
+ *                       the Stripe customer (cancels any subscription), and the
+ *                       Supabase auth user (needs SUPABASE_SERVICE_ROLE_KEY).
  *
  * Returns:
  * {
@@ -59,5 +62,58 @@ export async function onRequestGet(context) {
     });
   } catch (err) {
     return json({ error: 'account_error', detail: String(err) }, 500);
+  }
+}
+
+export async function onRequestDelete(context) {
+  const user = context.data?.user;
+  if (!user || !user.id) return json({ error: 'unauthorized' }, 401);
+  const env = context.env || {};
+  if (!env.DB) return json({ error: 'storage_unavailable' }, 503);
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    // Without the admin key we could delete the data but the login would remain; refuse so the user gets a clear message.
+    return json({ error: 'account_deletion_not_configured' }, 503);
+  }
+
+  const result = { data: false, stripe: null, auth: false };
+  try {
+    // 1. Stripe: deleting the customer cancels active subscriptions immediately.
+    if (env.STRIPE_SECRET_KEY) {
+      const acct = await env.DB.prepare('SELECT stripe_customer_id FROM accounts WHERE user_id = ?').bind(user.id).first();
+      if (acct?.stripe_customer_id) {
+        try {
+          await stripeRequest(env.STRIPE_SECRET_KEY, 'DELETE', `/v1/customers/${acct.stripe_customer_id}`);
+          result.stripe = 'deleted';
+        } catch (err) {
+          // A missing customer (test-mode reset etc.) must not block deletion
+          if (/No such customer/i.test(String(err?.message || err))) result.stripe = 'missing';
+          else throw err;
+        }
+      } else {
+        result.stripe = 'none';
+      }
+    }
+
+    // 2. D1: everything keyed by user_id, in one transaction.
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM invoices WHERE user_id = ?').bind(user.id),
+      env.DB.prepare('DELETE FROM kv WHERE user_id = ?').bind(user.id),
+      env.DB.prepare('DELETE FROM accounts WHERE user_id = ?').bind(user.id),
+    ]);
+    result.data = true;
+
+    // 3. Supabase auth user via the Admin API (service role key, server-side only).
+    const res = await fetch(`${env.SUPABASE_URL.replace(/\/+$/, '')}/auth/v1/admin/users/${encodeURIComponent(user.id)}`, {
+      method: 'DELETE',
+      headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` },
+    });
+    if (!res.ok && res.status !== 404) {
+      const text = await res.text();
+      return json({ error: 'auth_delete_failed', detail: text.substring(0, 300), ...result }, 502);
+    }
+    result.auth = true;
+    return json({ ok: true, ...result });
+  } catch (err) {
+    return json({ error: 'delete_failed', detail: String(err?.message || err), ...result }, 500);
   }
 }

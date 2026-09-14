@@ -154,6 +154,11 @@ export default function AuthModal({ mode: initialMode = 'login', onClose, onDone
               <button onClick={() => { setMode('forgot'); setMsg(null); }} style={linkBtn}>Wachtwoord vergeten?</button>
             </>
           )}
+          {mode === 'register' && (
+            <div style={{ fontSize: '11px', color: 'var(--tm)', lineHeight: 1.6, marginBottom: '6px' }}>
+              Door een account aan te maken gaat u akkoord met de <a href="#/voorwaarden" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--ac)' }}>algemene voorwaarden</a> en de <a href="#/privacy" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--ac)' }}>privacyverklaring</a>.
+            </div>
+          )}
           {(mode === 'register' || mode === 'forgot') && (
             <button onClick={() => { setMode('login'); setMsg(null); }} style={linkBtn}>← Terug naar inloggen</button>
           )}

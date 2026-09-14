@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { storageSet, setAuthTokenProvider, loadAll, KEYS, invoiceCreate, invoicePatch, invoiceDelete, invoicesImport } from './storage.js';
+import { storageSet, setAuthTokenProvider, loadAll, KEYS, invoiceCreate, invoicePatch, invoiceDelete, invoicesImport, accountDelete } from './storage.js';
 import { supabase } from './supabase.js';
 import AuthModal from './AuthModal.jsx';
 import LandingPage from './LandingPage.jsx';
 import Uitleg from './Uitleg.jsx';
+import Privacy from './Privacy.jsx';
+import Voorwaarden from './Voorwaarden.jsx';
 import PaywallModal from './PaywallModal.jsx';
 import { getAccount, openPortal } from './billing.js';
 import { TRADE_PERCENTAGES, BLANK_OA, BLANK_OG, BLANK_PROJECT, BLANK_LINE } from './constants.js';
@@ -231,6 +233,28 @@ export default function App() {
     refreshAccount();
   };
 
+  /** Delete the account and all data. Confirm twice; the second asks for the word VERWIJDER. */
+  const deleteAccount = async () => {
+    const n = invoices.length;
+    if (!window.confirm(
+      `Uw account en alle gegevens (profiel, ${savedClients.length} opdrachtgevers, ${n} facturen) worden definitief verwijderd.`
+      + (account?.plan === 'pro' ? ' Uw Pro-abonnement wordt beëindigd.' : '')
+      + '\n\nLet op de bewaarplicht van 7 jaar: download eerst een backup. Doorgaan?'
+    )) return;
+    const word = window.prompt('Typ VERWIJDER om te bevestigen:');
+    if (word !== 'VERWIJDER') { flash('Verwijderen geannuleerd'); return; }
+    try {
+      await accountDelete();
+    } catch (err) {
+      flash(err?.status === 503 ? 'Account verwijderen is nog niet ingeschakeld; mail ons.' : 'Verwijderen mislukt, probeer het later opnieuw');
+      return;
+    }
+    if (supabase) await supabase.auth.signOut().catch(() => {});
+    resetData();
+    setView('editor');
+    window.alert('Uw account en gegevens zijn verwijderd.');
+  };
+
   const loadInvoice = (inv) => {
     setOa(inv.oa); setOg(inv.og); setProject(inv.project); setLines(inv.lines);
     setPeppol(inv.peppol || null);
@@ -353,6 +377,11 @@ export default function App() {
     return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--tm)' }}>Laden...</div>;
   }
 
+  if (route === '#/privacy' || route === '#/voorwaarden') {
+    const Page = route === '#/privacy' ? Privacy : Voorwaarden;
+    return <Page loggedIn={!!user} onBack={() => { window.location.hash = ''; }} />;
+  }
+
   if (route === '#/uitleg') {
     return (
       <>
@@ -424,6 +453,7 @@ export default function App() {
         onToggleStatus={toggleInvoiceStatus}
         onExportBackup={exportBackup}
         onImportBackup={importBackup}
+        onDeleteAccount={deleteAccount}
         account={account}
         onUpgrade={() => { setView('editor'); setPaywall(true); }}
         onManageSubscription={async () => {

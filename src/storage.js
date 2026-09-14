@@ -104,6 +104,9 @@ export const invoiceDelete = (id) => api(`/api/invoices/${encodeURIComponent(id)
 /** @returns {Promise<{next: string}>} */
 export const invoiceNext = () => api('/api/invoices/next');
 
+/** Permanently delete the account: D1 data, Stripe customer, Supabase user. */
+export const accountDelete = () => api('/api/account', { method: 'DELETE' });
+
 /** Restore invoices from a backup. @returns {{imported, skipped, invoices, next}} */
 export const invoicesImport = (invoices) => api('/api/invoices/import', { method: 'POST', body: { invoices } });
 
