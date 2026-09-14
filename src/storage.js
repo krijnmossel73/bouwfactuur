@@ -104,6 +104,31 @@ export const invoiceDelete = (id) => api(`/api/invoices/${encodeURIComponent(id)
 /** @returns {Promise<{next: string}>} */
 export const invoiceNext = () => api('/api/invoices/next');
 
+async function pdfFetch(path, init) {
+  const res = await fetch(path, { ...init, headers: { ...(await authHeaders()), ...(init?.headers || {}) } });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw apiError(res, data);
+  }
+  const blob = await res.blob();
+  const cd = res.headers.get('Content-Disposition') || '';
+  const m = cd.match(/filename="([^"]+)"/);
+  return { blob, filename: m ? m[1] : 'factuur.pdf' };
+}
+
+/** Render a draft invoice to PDF on the server. @returns {{blob, filename}} */
+export const pdfForDraft = (invoice) => pdfFetch('/api/pdf', { method: 'POST', body: JSON.stringify({ invoice }) });
+
+/** PDF of a saved invoice by id. @returns {{blob, filename}} */
+export const pdfForSaved = (id) => pdfFetch(`/api/pdf?id=${encodeURIComponent(id)}`);
+
+export function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
 /** Permanently delete the account: D1 data, Stripe customer, Supabase user. */
 export const accountDelete = () => api('/api/account', { method: 'DELETE' });
 

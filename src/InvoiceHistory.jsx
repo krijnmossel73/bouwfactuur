@@ -5,7 +5,7 @@ import { btn1, btn2, sec, crd } from './styles.js';
 
 export default function InvoiceHistory({
   onDeleteAccount,
-  invoices, onBack, onNew, onLoad, onDuplicate, onDelete,
+  invoices, onBack, onNew, onLoad, onPdf, onDuplicate, onDelete,
   onToggleStatus, onExportBackup, onImportBackup,
   account, onUpgrade, onManageSubscription,
 }) {
@@ -98,6 +98,9 @@ export default function InvoiceHistory({
                   <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
                     <button onClick={() => onLoad(inv)} style={{ ...btn2, padding: '6px 10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '5px' }} title="Openen" aria-label="Openen">
                       <EyeIcon /><span className="btn-txt">Openen</span>
+                    </button>
+                    <button onClick={() => onPdf(inv)} style={{ ...btn2, padding: '6px 10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '5px' }} title="PDF downloaden" aria-label="PDF downloaden">
+                      <DownIcon /><span className="btn-txt">PDF</span>
                     </button>
                     <button onClick={() => onDuplicate(inv)} style={{ ...btn2, padding: '6px 10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '5px' }} title="Kopiëren als nieuwe factuur" aria-label="Kopiëren">
                       <CopyIcon /><span className="btn-txt">Kopiëren</span>

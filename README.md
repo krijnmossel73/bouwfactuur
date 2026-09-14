@@ -11,7 +11,7 @@ Live: https://bouwfactuur.pages.dev
 - **G-rekening splitsing**: labor/material separation with trade-specific percentages (source: Bouwend Nederland)
 - **Wka-vermelding**: chain-liability details (contract reference, project name, G-rekening) on every invoice
 - **Compliance check**: pre-export checklist against Belastingdienst factuurvereisten and Wka requirements, including IBAN mod-97 validation
-- **PDF export**: A4 print layout via browser print-to-PDF
+- **PDF export**: rendered server-side with pdf-lib (identical on every device, no print dialog, works on mobile); browser print view kept as "Afdrukken" fallback. Saved invoices can be downloaded again from the history
 - **NLCIUS UBL 2.1 XML export**: EN16931-compliant invoice XML (Peppol BIS 3.0 profile) with construction-specific fields, compatible with Peppol and DICO service providers
 - **Peppol**: recipient lookup in the Peppol Directory, one-call sending via B2Brouter (Access Point) and delivery-state tracking per invoice; behind a feature flag
 - **VIES validation**: real-time BTW-nummer check against the EC VIES API with auto-fill of name and address
@@ -164,6 +164,8 @@ Custom domains are added under Pages → Custom domains; Cloudflare provisions T
 | POST | `/api/invoices` | JWT | Create; server issues the number. 402 at the free limit, 409 if a custom number exists |
 | PATCH/DELETE | `/api/invoices/:id` | JWT | Status or Peppol state; soft delete. Content cannot be changed |
 | GET | `/api/invoices/next` | JWT | Predicted next number |
+| POST | `/api/pdf` | JWT | Render the invoice in the body to PDF |
+| GET | `/api/pdf?id=...` | JWT | PDF of a saved invoice |
 | POST | `/api/invoices/import` | JWT | Restore from backup; existing numbers are skipped |
 | POST | `/api/peppol/webhook` | B2Brouter signature | Delivery-state updates by B2Brouter invoice id |
 | GET | `/api/account` | JWT | Plan, usage and price |
@@ -190,7 +192,7 @@ src/
 ├── Uitleg.jsx           Explanation page (#/uitleg)
 ├── Privacy.jsx, Voorwaarden.jsx, LegalPage.jsx, legal.js   Legal pages and operator details
 ├── PaywallModal.jsx     Upgrade prompt on 402
-├── InvoicePDF.jsx       Print-ready A4 invoice
+├── InvoicePDF.jsx       Print-ready A4 invoice (browser fallback)
 ├── InvoiceHistory.jsx   Saved invoices with status
 ├── PeppolPanel.jsx      Peppol lookup + send UI
 ├── ViesButton.jsx / vies.js      VIES validation
@@ -211,6 +213,7 @@ functions/
 └── api/
     ├── storage/         index.js (GET all), [key].js (GET/PUT/DELETE)
     ├── invoices/        index.js (list/create), [id].js (patch/delete), next.js, import.js
+    ├── pdf/             index.js (POST draft / GET saved → application/pdf)
     ├── account.js
     ├── billing/         checkout.js, portal.js, webhook.js
     ├── vies.js, kvk.js
@@ -222,6 +225,7 @@ lib/
 ├── accounts.js          Freemium entitlement logic
 ├── invoices.js          Invoice rows, numbering, migration from the kv blob
 ├── invoice-handlers.js  Shared guard/error mapping for /api/invoices
+├── pdf.js               Invoice PDF renderer (pdf-lib, A4, multi-page)
 └── stripe.js            Minimal Stripe client + webhook signature check
 
 schema.sql               D1 schema
@@ -233,7 +237,6 @@ public/_routes.json      Routes only /api/* through Functions
 
 - [ ] Broader test coverage (XML generator, totals, validation)
 - [ ] Self-host the web fonts (Google Fonts currently exposes visitor IPs to Google; noted in the privacy statement)
-- [ ] Server-side PDF generation
 - [ ] Restore view for soft-deleted invoices
 
 ## License

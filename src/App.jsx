@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { storageSet, setAuthTokenProvider, loadAll, KEYS, invoiceCreate, invoicePatch, invoiceDelete, invoicesImport, accountDelete } from './storage.js';
+import { storageSet, setAuthTokenProvider, loadAll, KEYS, invoiceCreate, invoicePatch, invoiceDelete, invoicesImport, accountDelete, pdfForDraft, pdfForSaved, downloadBlob } from './storage.js';
 import { supabase } from './supabase.js';
 import AuthModal from './AuthModal.jsx';
 import LandingPage from './LandingPage.jsx';
@@ -367,7 +367,31 @@ export default function App() {
   const addLine = () => setLines([...lines, { ...BLANK_LINE }]);
   const removeLine = (i) => lines.length > 1 && setLines(lines.filter((_, j) => j !== i));
 
-  const exportPDF = () => { setView('pdf'); setTimeout(() => window.print(), 400); };
+  const [pdfBusy, setPdfBusy] = useState(false);
+  /** Server-rendered PDF; falls back to the print view if the server is unreachable. */
+  const exportPDF = async () => {
+    if (pdfBusy) return;
+    setPdfBusy(true);
+    try {
+      const saved = invoices.find((i) => i.nummer === project.factuurnummer);
+      const draft = { nummer: project.factuurnummer, oa, og, project, lines, totals, btwVerlegd, btwTarief, useGrek, gPerc };
+      const { blob, filename } = saved ? await pdfForSaved(saved.id) : await pdfForDraft(draft);
+      downloadBlob(blob, filename);
+      flash(`${filename} gedownload`);
+    } catch {
+      flash('PDF via server mislukt, printvoorbeeld geopend');
+      setView('pdf'); setTimeout(() => window.print(), 400);
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+  const printPreview = () => { setView('pdf'); };
+  const downloadSavedPdf = async (inv) => {
+    try {
+      const { blob, filename } = await pdfForSaved(inv.id);
+      downloadBlob(blob, filename);
+    } catch { flash('PDF downloaden mislukt'); }
+  };
 
   // ═══════════════════════════════════════════
   //  ROUTE: PDF
@@ -448,6 +472,7 @@ export default function App() {
         onBack={() => setView('editor')}
         onNew={newInvoice}
         onLoad={loadInvoice}
+        onPdf={downloadSavedPdf}
         onDuplicate={dupInvoice}
         onDelete={delInvoice}
         onToggleStatus={toggleInvoiceStatus}
@@ -901,8 +926,11 @@ export default function App() {
 
             {/* Action buttons */}
             <div style={{ display: 'flex', gap: '8px', marginTop: '14px', flexWrap: 'wrap' }}>
-              <button onClick={exportPDF} style={{ ...btn1, flex: 1, minWidth: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                <DownIcon /> PDF
+              <button onClick={exportPDF} disabled={pdfBusy} style={{ ...btn1, flex: 1, minWidth: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', opacity: pdfBusy ? 0.7 : 1 }}>
+                <DownIcon /> {pdfBusy ? 'PDF maken…' : 'PDF'}
+              </button>
+              <button onClick={printPreview} title="Printvoorbeeld in de browser" style={{ ...btn2, minWidth: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                Afdrukken
               </button>
               {features.xmlExport && (
               <button onClick={() => {
