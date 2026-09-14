@@ -65,7 +65,7 @@ export default function App() {
     setOa({ ...BLANK_OA }); setProfLoaded(false);
     setOg({ ...BLANK_OG }); setProject({ ...BLANK_PROJECT });
     setLines([{ ...BLANK_LINE }]);
-    setSavedClients([]); setInvoices([]); setNextNum(1);
+    setSavedClients([]); setInvoices([]); setNextNumber('');
     setView('editor'); setStep(0);
   };
 
