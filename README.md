@@ -210,6 +210,7 @@ lib/
 ├── b2brouter.js         B2Brouter API client (import-and-send, status, directory)
 ├── accounts.js          Freemium entitlement logic
 ├── invoices.js          Invoice rows, numbering, migration from the kv blob
+├── invoice-handlers.js  Shared guard/error mapping for /api/invoices
 └── stripe.js            Minimal Stripe client + webhook signature check
 
 schema.sql               D1 schema

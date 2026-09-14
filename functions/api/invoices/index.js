@@ -6,7 +6,7 @@
  */
 import { jsonResponse } from '../../../lib/auth.js';
 import { listInvoices, createInvoice, nextNumber, migrateLegacyBlob } from '../../../lib/invoices.js';
-import { guard, handleError } from './_shared.js';
+import { guard, handleError } from '../../../lib/invoice-handlers.js';
 
 export async function onRequestGet(context) {
   const g = guard(context);

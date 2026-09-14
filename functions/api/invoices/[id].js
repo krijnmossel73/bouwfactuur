@@ -6,7 +6,7 @@
  */
 import { jsonResponse } from '../../../lib/auth.js';
 import { patchInvoice, softDeleteInvoice } from '../../../lib/invoices.js';
-import { guard, handleError } from './_shared.js';
+import { guard, handleError } from '../../../lib/invoice-handlers.js';
 
 function id(context) {
   const v = String(context.params.id || '');
