@@ -5,13 +5,16 @@
  * import-and-send call. B2Brouter reads the recipient from the UBL
  * (EndpointID 0106:<KvK>), so no contact management is needed here.
  *
- * Body:     { xml: "...", recipientKvk: "12345678", number?: "2026-0001" }
+ * Body:     { xml: "...", recipientKvk: "12345678", number?: "2026-0001", invoiceId?: <our id> }
+ *           When invoiceId is given, the Peppol state is stored on that row so
+ *           the B2Brouter webhook can update it later.
  * Response: { success, invoiceId, state, stateLabel, sandbox, sentAt }
  *           { success: false, error, needsSetup?: true, code?, details? }
  */
 
 import { requireUser, jsonResponse } from '../../../lib/auth.js';
 import { b2bConfigured, b2bIsSandbox, importInvoice, STATE_LABELS, B2BrouterError } from '../../../lib/b2brouter.js';
+import { patchInvoice } from '../../../lib/invoices.js';
 
 export async function onRequestPost(context) {
   // Sending costs transactions on our B2Brouter plan; anonymous callers are refused.
@@ -34,7 +37,7 @@ export async function onRequestPost(context) {
     return jsonResponse({ success: false, error: 'Ongeldig request.' }, 400);
   }
 
-  const { xml, recipientKvk, number } = body || {};
+  const { xml, recipientKvk, number, invoiceId } = body || {};
   if (!xml || typeof xml !== 'string' || !xml.includes('<Invoice')) {
     return jsonResponse({ success: false, error: 'Geldige factuur-XML is verplicht.' }, 400);
   }
@@ -45,6 +48,17 @@ export async function onRequestPost(context) {
   try {
     const fileName = `${(number || 'factuur').replace(/[^\w.-]+/g, '_')}.xml`;
     const inv = await importInvoice(env, xml, { send: true, fileName });
+    const peppol = {
+      invoiceId: String(inv.id),
+      state: inv.state,
+      stateLabel: STATE_LABELS[inv.state] || inv.state,
+      errorCode: inv.errorCode,
+      sandbox: b2bIsSandbox(env),
+      sentAt: new Date().toISOString(),
+    };
+    if (invoiceId && env.DB) {
+      try { await patchInvoice(env.DB, auth.user.id, String(invoiceId), { peppol }); } catch { /* row may not exist yet; client PATCHes on save */ }
+    }
     return jsonResponse({
       success: true,
       invoiceId: inv.id,

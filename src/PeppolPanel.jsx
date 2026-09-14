@@ -8,7 +8,7 @@ import { peppolLookup, peppolSend, peppolStatus } from './peppol.js';
 const FINAL_STATES = new Set(['registered', 'accepted', 'refused', 'error', 'paid']);
 const GOOD_STATES = new Set(['sent', 'registered', 'accepted', 'paid']);
 
-export default function PeppolPanel({ recipientKvk, recipientName, invoiceNumber, previous, onGenerateXml, onSent }) {
+export default function PeppolPanel({ recipientKvk, recipientName, invoiceNumber, savedId, previous, onGenerateXml, onSent }) {
   const [lookupStatus, setLookupStatus] = useState(previous?.invoiceId ? 'found' : 'idle'); // idle | loading | found | notfound | error
   const [lookupData, setLookupData] = useState(previous?.invoiceId ? { participantId: `0106:${String(recipientKvk || '').replace(/\D/g, '')}` } : null);
   const [sendStatus, setSendStatus] = useState(previous?.invoiceId ? 'sent' : 'idle'); // idle | loading | sent | error | needsSetup
@@ -87,7 +87,7 @@ export default function PeppolPanel({ recipientKvk, recipientName, invoiceNumber
     // Generate fresh XML
     const xml = onGenerateXml();
 
-    const result = await peppolSend(xml, recipientKvk, invoiceNumber);
+    const result = await peppolSend(xml, recipientKvk, invoiceNumber, savedId);
 
     if (result.needsSetup) {
       setSendStatus('needsSetup');

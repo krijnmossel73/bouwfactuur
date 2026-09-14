@@ -2,14 +2,14 @@
  * Cloudflare Pages Function: GET /api/storage
  *
  * Returns all stored values for the authenticated user in one call:
- *   { data: { profile, clients, invoices, nextnum } }  (missing keys → null)
+ *   { data: { profile, clients } }  (missing keys → null; invoices: see /api/invoices)
  *
  * Responses:
  *   401 — not authenticated (no valid Supabase JWT)
  *   503 — D1 binding "DB" not configured (client falls back to localStorage)
  */
 
-const VALID_KEYS = ['profile', 'clients', 'invoices', 'nextnum'];
+const VALID_KEYS = ['profile', 'clients'];
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {

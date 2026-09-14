@@ -26,3 +26,29 @@ CREATE TABLE IF NOT EXISTS accounts (
 );
 
 CREATE INDEX IF NOT EXISTS idx_accounts_customer ON accounts(stripe_customer_id);
+
+-- ── Invoices: one row per invoice (replaces the kv "invoices" blob) ──
+-- Numbers are issued server-side (YYYY-NNNN per user per year) and are
+-- unique per user, deleted rows included, so a number is never reused.
+-- Content (data) is immutable after creation; only status and peppol
+-- state change. Deletion is soft (bewaarplicht).
+CREATE TABLE IF NOT EXISTS invoices (
+  id          TEXT PRIMARY KEY,
+  user_id     TEXT NOT NULL,
+  number      TEXT NOT NULL,
+  year        INTEGER NOT NULL,
+  seq         INTEGER,                         -- NULL for custom (free-text) numbers
+  date        TEXT NOT NULL,
+  status      TEXT NOT NULL DEFAULT 'open',    -- open | betaald
+  total       REAL,
+  data        TEXT NOT NULL,                   -- full invoice JSON as saved by the app
+  peppol      TEXT,                            -- JSON: { invoiceId, state, stateLabel, ... }
+  peppol_ref  TEXT,                            -- B2Brouter invoice id, for webhooks
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  deleted_at  TEXT
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_invoices_user_number ON invoices(user_id, number);
+CREATE INDEX IF NOT EXISTS idx_invoices_user_date ON invoices(user_id, deleted_at, date);
+CREATE INDEX IF NOT EXISTS idx_invoices_peppol_ref ON invoices(peppol_ref);

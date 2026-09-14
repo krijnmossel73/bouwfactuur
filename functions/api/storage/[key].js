@@ -5,13 +5,13 @@
  * PUT    → body { value: <any JSON> } — upserts the key for the user
  * DELETE → removes the key for the user
  *
- * Keys are restricted to: profile | clients | invoices | nextnum.
+ * Keys are restricted to: profile | clients. Invoices live in /api/invoices.
  * Requires Supabase authentication (middleware verifies the JWT and sets context.data.user).
  */
 
-import { FREE_INVOICE_LIMIT, isEntitled, getOrCreateAccount, countNewInvoices } from '../../../lib/accounts.js';
-
-const VALID_KEYS = ['profile', 'clients', 'invoices', 'nextnum'];
+const VALID_KEYS = ['profile', 'clients'];
+// 'invoices' and 'nextnum' moved to the invoices table (/api/invoices); writes are refused.
+const RETIRED_KEYS = ['invoices', 'nextnum'];
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -28,6 +28,7 @@ function guard(context) {
   if (!user || !user.id) return { err: json({ error: 'unauthorized' }, 401) };
   if (!context.env.DB) return { err: json({ error: 'storage_unavailable' }, 503) };
   const key = context.params.key;
+  if (RETIRED_KEYS.includes(key)) return { err: json({ error: 'key_retired', hint: 'use /api/invoices' }, 410) };
   if (!VALID_KEYS.includes(key)) return { err: json({ error: 'invalid_key' }, 400) };
   return { user, key, db: context.env.DB };
 }
@@ -62,39 +63,6 @@ export async function onRequestPut(context) {
     const serialized = JSON.stringify(body.value);
     if (serialized === undefined) return json({ error: 'unserializable_value' }, 400);
     if (serialized.length > MAX_VALUE_BYTES) return json({ error: 'value_too_large' }, 413);
-
-    // ── Freemium gate: new invoices count against the lifetime limit ──
-    // Only enforced once billing is live (Stripe configured); the counter
-    // is tracked regardless so history is accurate when billing launches.
-    if (g.key === 'invoices') {
-      const prevRow = await g.db
-        .prepare('SELECT value FROM kv WHERE user_id = ? AND key = ?')
-        .bind(g.user.id, 'invoices')
-        .first();
-      let previous = [];
-      try { previous = prevRow ? JSON.parse(prevRow.value) : []; } catch { previous = []; }
-
-      const newCount = countNewInvoices(body.value, previous);
-      if (newCount > 0) {
-        const account = await getOrCreateAccount(g.db, g.user);
-        const billingLive = Boolean(context.env.STRIPE_SECRET_KEY);
-        if (
-          billingLive &&
-          !isEntitled(account) &&
-          (account.invoices_created || 0) + newCount > FREE_INVOICE_LIMIT
-        ) {
-          return json({
-            error: 'subscription_required',
-            invoicesCreated: account.invoices_created || 0,
-            freeLimit: FREE_INVOICE_LIMIT,
-          }, 402);
-        }
-        await g.db
-          .prepare(`UPDATE accounts SET invoices_created = invoices_created + ?, updated_at = datetime('now') WHERE user_id = ?`)
-          .bind(newCount, g.user.id)
-          .run();
-      }
-    }
 
     await g.db
       .prepare(`INSERT INTO kv (user_id, key, value, updated_at)

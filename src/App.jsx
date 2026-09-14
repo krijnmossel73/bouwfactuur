@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { storageSet, setAuthTokenProvider, loadAll, KEYS } from './storage.js';
+import { storageSet, setAuthTokenProvider, loadAll, KEYS, invoiceCreate, invoicePatch, invoiceDelete, invoicesImport } from './storage.js';
 import { supabase } from './supabase.js';
 import AuthModal from './AuthModal.jsx';
 import LandingPage from './LandingPage.jsx';
@@ -7,7 +7,7 @@ import Uitleg from './Uitleg.jsx';
 import PaywallModal from './PaywallModal.jsx';
 import { getAccount, openPortal } from './billing.js';
 import { TRADE_PERCENTAGES, BLANK_OA, BLANK_OG, BLANK_PROJECT, BLANK_LINE } from './constants.js';
-import { fmt, fmtDate, calcVerval, makeInvoiceNumber, calcTotals } from './utils.js';
+import { fmt, fmtDate, calcVerval, calcTotals } from './utils.js';
 import { PlusIcon, TrashIcon, FileIcon, EyeIcon, BldgIcon, SaveIcon, DownIcon, ListIcon, LogoIcon } from './Icons.jsx';
 import { inp, sel, lbl, btn1, btn2, sec, g2, full, crd, chk, nfo, sinp, num } from './styles.js';
 import InvoicePDF from './InvoicePDF.jsx';
@@ -37,7 +37,7 @@ export default function App() {
   // ── Persisted collections ──
   const [savedClients, setSavedClients] = useState([]);
   const [invoices, setInvoices] = useState([]);
-  const [nextNum, setNextNum] = useState(1);
+  const [nextNumber, setNextNumber] = useState(''); // server-predicted next invoice number, e.g. 2026-0004
 
   // ── UI state ──
   const [loading, setLoading] = useState(true);
@@ -93,7 +93,7 @@ export default function App() {
       if (res.profile) { setOa(res.profile); setProfLoaded(true); }
       setSavedClients(res.clients);
       setInvoices(res.invoices);
-      setNextNum(res.nextNum);
+      setNextNumber(res.nextNumber || '');
       if (res.migrated) flash('Gegevens gemigreerd naar uw account');
       setAccount(await getAccount());
     } catch {
@@ -166,10 +166,10 @@ export default function App() {
 
   // ── Auto-generate first invoice number ──
   useEffect(() => {
-    if (!loading && !project.factuurnummer) {
-      setProject((p) => ({ ...p, factuurnummer: makeInvoiceNumber(nextNum) }));
+    if (!loading && !project.factuurnummer && nextNumber) {
+      setProject((p) => ({ ...p, factuurnummer: nextNumber }));
     }
-  }, [loading]);
+  }, [loading, nextNumber]);
 
   // ═══════════════════════════════════════════
   //  ACTIONS
@@ -197,10 +197,17 @@ export default function App() {
     account?.plan === 'free' &&
     (account?.invoicesCreated ?? 0) >= (account?.freeLimit ?? 2);
 
+  /** Map an API error to UI feedback; returns true when handled. */
+  const handleApiError = (err) => {
+    if (err?.status === 402) { refreshAccount(); setPaywall(true); return true; }
+    if (err?.status === 409) { flash(`Factuurnummer ${err.body?.number || ''} bestaat al`); return true; }
+    flash('Opslaan mislukt — controleer uw internetverbinding');
+    return true;
+  };
+
   const saveInvoice = async () => {
     if (atFreeLimit) { setPaywall(true); return; }
-    const inv = {
-      id: Date.now().toString(),
+    const draft = {
       date: project.factuurdatum,
       nummer: project.factuurnummer,
       status: 'open',
@@ -209,13 +216,18 @@ export default function App() {
       totals: { ...totals },
       ...(peppol ? { peppol } : {}),
     };
-    const next = [inv, ...invoices];
-    if (!(await persist(KEYS.invoices, next))) return;
-    setInvoices(next);
-    const nn = nextNum + 1;
-    setNextNum(nn);
-    await persist(KEYS.nextNum, nn);
-    flash(`Factuur ${inv.nummer} opgeslagen`);
+    let res;
+    try { res = await invoiceCreate(draft); } catch (err) { handleApiError(err); return; }
+    const inv = res.invoice;
+    setInvoices((prev) => [inv, ...prev]);
+    setNextNumber(res.next || '');
+    if (inv.nummer !== project.factuurnummer) {
+      // Another device took the predicted number; the server issued the next free one
+      setProject((p) => ({ ...p, factuurnummer: inv.nummer }));
+      flash(`Opgeslagen als ${inv.nummer} (nummer was al in gebruik)`);
+    } else {
+      flash(`Factuur ${inv.nummer} opgeslagen`);
+    }
     refreshAccount();
   };
 
@@ -233,7 +245,7 @@ export default function App() {
     setOa(inv.oa); setOg(inv.og);
     setProject({
       ...inv.project,
-      factuurnummer: makeInvoiceNumber(nextNum),
+      factuurnummer: nextNumber,
       factuurdatum: new Date().toISOString().split('T')[0],
     });
     setLines(inv.lines); setBtwVerlegd(inv.btwVerlegd); setBtwTarief(inv.btwTarief ?? 21);
@@ -244,26 +256,27 @@ export default function App() {
 
   const delInvoice = async (id) => {
     const inv = invoices.find((i) => i.id === id);
-    if (!window.confirm(`Factuur ${inv?.nummer || ''} definitief verwijderen?`)) return;
-    const next = invoices.filter((i) => i.id !== id);
-    if (!(await persist(KEYS.invoices, next))) return;
-    setInvoices(next);
+    if (!window.confirm(`Factuur ${inv?.nummer || ''} verwijderen uit uw overzicht?\n\nLet op: de bewaarplicht voor facturen is 7 jaar. Het factuurnummer blijft gereserveerd.`)) return;
+    try { await invoiceDelete(id); } catch (err) { handleApiError(err); return; }
+    setInvoices((prev) => prev.filter((i) => i.id !== id));
     flash('Verwijderd');
   };
 
   const toggleInvoiceStatus = async (id) => {
-    const next = invoices.map((i) =>
-      i.id === id ? { ...i, status: (i.status ?? 'open') === 'open' ? 'betaald' : 'open' } : i
-    );
-    if (!(await persist(KEYS.invoices, next))) return;
-    setInvoices(next);
+    const cur = invoices.find((i) => i.id === id);
+    if (!cur) return;
+    const status = (cur.status ?? 'open') === 'open' ? 'betaald' : 'open';
+    try {
+      const { invoice } = await invoicePatch(id, { status });
+      setInvoices((prev) => prev.map((i) => (i.id === id ? invoice : i)));
+    } catch (err) { handleApiError(err); }
   };
 
   // ── Backup / restore (localStorage is fragile — give users an escape hatch) ──
   const exportBackup = () => {
     const data = {
       app: 'bouwfactuur', version: 1, exportedAt: new Date().toISOString(),
-      profile: profLoaded ? oa : null, clients: savedClients, invoices, nextNum,
+      profile: profLoaded ? oa : null, clients: savedClients, invoices,
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -279,24 +292,27 @@ export default function App() {
     try {
       const data = JSON.parse(await file.text());
       if (data.app !== 'bouwfactuur') throw new Error('not a bouwfactuur backup');
-      if (!window.confirm('Backup terugzetten? Huidige gegevens worden overschreven.')) return;
+      if (!window.confirm('Backup terugzetten? Profiel en klanten worden overschreven; facturen uit de backup worden toegevoegd (bestaande factuurnummers worden overgeslagen).')) return;
       const cls = Array.isArray(data.clients) ? data.clients : [];
       const invs = Array.isArray(data.invoices) ? data.invoices : [];
-      const nn = Number.isInteger(data.nextNum) ? data.nextNum : 1;
       await Promise.all([
         data.profile ? storageSet(KEYS.profile, data.profile) : null,
         storageSet(KEYS.clients, cls),
-        storageSet(KEYS.invoices, invs),
-        storageSet(KEYS.nextNum, nn),
       ].filter(Boolean));
       if (data.profile) { setOa(data.profile); setProfLoaded(true); }
       setSavedClients(cls);
-      setInvoices(invs);
-      setNextNum(nn);
-      flash('Backup teruggezet');
+      if (invs.length) {
+        const r = await invoicesImport(invs);
+        setInvoices(r.invoices);
+        setNextNumber(r.next || '');
+        flash(r.skipped?.length ? `Backup teruggezet: ${r.imported} facturen toegevoegd, ${r.skipped.length} overgeslagen` : `Backup teruggezet: ${r.imported} facturen toegevoegd`);
+      } else {
+        flash('Backup teruggezet');
+      }
+      refreshAccount();
     } catch (err) {
       if (err?.status === 402) { refreshAccount(); setPaywall(true); }
-      else flash(String(err).includes('storage') ? 'Opslaan mislukt — controleer uw internetverbinding' : 'Ongeldig backupbestand');
+      else flash(err?.status ? 'Opslaan mislukt — controleer uw internetverbinding' : 'Ongeldig backupbestand');
     }
   };
 
@@ -305,7 +321,7 @@ export default function App() {
     setPeppol(null);
     setProject({
       ...BLANK_PROJECT,
-      factuurnummer: makeInvoiceNumber(nextNum),
+      factuurnummer: nextNumber,
       factuurdatum: new Date().toISOString().split('T')[0],
     });
     setLines([{ ...BLANK_LINE }]);
@@ -879,16 +895,18 @@ export default function App() {
                 recipientKvk={og.kvk}
                 recipientName={og.naam}
                 invoiceNumber={project.factuurnummer}
+                savedId={invoices.find((i) => i.nummer === project.factuurnummer)?.id || null}
                 previous={peppol}
                 onGenerateXml={() => generateInvoiceXML({ oa, og, project, lines, totals, btwVerlegd, btwTarief, useGrek, gPerc })}
                 onSent={async (info) => {
                   setPeppol(info);
                   // Keep the saved copy in sync when this invoice was already stored
-                  const idx = invoices.findIndex((i) => i.nummer === project.factuurnummer);
-                  if (idx === -1) return;
-                  const next = [...invoices];
-                  next[idx] = { ...next[idx], peppol: info };
-                  if (await persist(KEYS.invoices, next)) setInvoices(next);
+                  const saved = invoices.find((i) => i.nummer === project.factuurnummer);
+                  if (!saved) return;
+                  try {
+                    const { invoice } = await invoicePatch(saved.id, { peppol: info });
+                    setInvoices((prev) => prev.map((i) => (i.id === saved.id ? invoice : i)));
+                  } catch { /* non-fatal: polling on next load will show the state */ }
                 }}
               />
             )}

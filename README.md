@@ -17,7 +17,8 @@ Live: https://bouwfactuur.pages.dev
 - **VIES validation**: real-time BTW-nummer check against the EC VIES API with auto-fill of name and address
 - **KvK lookup**: company lookup by KvK-nummer via the KvK Zoeken API (free test environment out of the box)
 - **Accounts**: Supabase Auth (email/password and Google); visitors see a public landing page and an explanation page at `#/uitleg`
-- **Cloud storage**: company profile, clients, invoices and invoice numbering stored per user in Cloudflare D1, available across devices
+- **Cloud storage**: company profile, clients and invoices stored per user in Cloudflare D1, available across devices
+- **Invoice numbering**: issued server-side (`JJJJ-NNNN`, sequential per year) at the moment of saving, so two devices can never produce the same number; a custom number is accepted when unused. Saved invoices are immutable; deletion is a soft delete (bewaarplicht) and the number stays reserved
 - **Freemium**: 2 invoices free (lifetime, enforced server-side), then BouwFactuur Pro via Stripe Checkout (iDEAL, card, SEPA) with a customer portal for managing the subscription
 - **Invoice status**: open/betaald per invoice with an outstanding-amount summary
 - **Backup & restore**: export all data to JSON and restore it
@@ -30,16 +31,17 @@ Browser (React/Vite SPA)
    ▼
 Cloudflare Pages Functions (/api/*)
    ├─ _middleware.js   verifies the JWT against Supabase JWKS
-   ├─ storage/*        per-user KV in D1, freemium gate
+   ├─ storage/*        profile and clients (per-user KV in D1)
+   ├─ invoices/*       invoice rows, server-issued numbers, freemium gate
    ├─ account, billing/* Stripe checkout, portal, webhook
    └─ vies, kvk, peppol/* authenticated proxies to external APIs
    │
-   ├─ Cloudflare D1 (tables: kv, accounts)
+   ├─ Cloudflare D1 (tables: kv, accounts, invoices)
    ├─ Supabase Auth
    └─ Stripe
 ```
 
-All `/api/*` endpoints except the Stripe webhook require a valid Supabase session; the webhook is authenticated by its Stripe signature instead.
+All `/api/*` endpoints except the two webhooks require a valid Supabase session; the Stripe and B2Brouter webhooks are authenticated by their signatures instead.
 
 ## Quick start
 
@@ -78,6 +80,7 @@ Non-secret values live in `wrangler.toml` under `[vars]`; secrets are set with `
 | `B2BROUTER_ACCOUNT_ID` | no | Issuing account; resolved automatically from `GET /accounts` when omitted |
 | `B2BROUTER_API_VERSION` | no | Pinned `X-B2B-API-Version`, default `2026-06-26` |
 | `B2BROUTER_API_URL` | no | Default `https://api.b2brouter.net` |
+| `B2BROUTER_WEBHOOK_SECRET` | no | Secret. Signature key of the B2Brouter webhook; enables `/api/peppol/webhook` |
 
 ### Feature flags
 
@@ -99,7 +102,7 @@ npx wrangler d1 create bouwfactuur                     # once; copy database_id 
 npx wrangler d1 execute bouwfactuur --remote --file=./schema.sql
 ```
 
-`schema.sql` is idempotent (`CREATE TABLE IF NOT EXISTS`) and defines two tables: `kv` (per-user JSON values for `profile`, `clients`, `invoices`, `nextnum`) and `accounts` (lifetime invoice counter and subscription state).
+`schema.sql` is idempotent (`CREATE TABLE IF NOT EXISTS`) and defines three tables: `kv` (per-user JSON for `profile` and `clients`), `invoices` (one row per invoice: number, year/sequence, status, immutable JSON payload, Peppol state, soft-delete) and `accounts` (lifetime invoice counter and subscription state). Re-run the command after upgrading to get the `invoices` table; existing users' invoices are migrated out of the old `kv` blob automatically the first time they load the app.
 
 ### Stripe
 
@@ -126,7 +129,9 @@ Recipient lookup uses the public Peppol Directory and needs no setup. Sending go
 4. Send a test invoice. In the sandbox nothing leaves B2Brouter: any recipient reaches `sent → registered`. Optionally add a contact with GLN `9506215594996` (refused) or `9500047420799` (no receiver) to exercise the failure paths.
 5. For production, create a `prod_…` key in the normal (non-sandbox) workspace, make sure your company is registered as a Peppol participant there (Connections → Peppol), and replace the secret. Same base URL; the key selects the environment.
 
-How a send works: the NLCIUS UBL is posted to `POST /accounts/{id}/invoices/import?send_after_import=true`. B2Brouter reads the recipient from `AccountingCustomerParty/EndpointID` (`0106:<KvK>`), creates or matches the contact, validates the document and queues it. The app then polls `GET /invoices/{id}` for the delivery state (`sent → registered → accepted/refused`, or `error` with a code such as `PEPPOL_NO_RECEIVER`) and stores the last known state on the invoice.
+How a send works: the NLCIUS UBL is posted to `POST /accounts/{id}/invoices/import?send_after_import=true`. B2Brouter reads the recipient from `AccountingCustomerParty/EndpointID` (`0106:<KvK>`), creates or matches the contact, validates the document and queues it. The app polls `GET /invoices/{id}` for the delivery state (`sent → registered → accepted/refused`, or `error` with a code such as `PEPPOL_NO_RECEIVER`) and stores the last known state on the invoice.
+
+For push updates, add a webhook in B2Brouter (Developers → Webhooks) pointing at `https://bouwfactuur.pages.dev/api/peppol/webhook` for issued-invoice state changes, and store its signature key as `B2BROUTER_WEBHOOK_SECRET`. The receiver verifies `X-B2Brouter-Signature` (HMAC-SHA256 over `t.body`, 10-minute window) and updates the invoice by its B2Brouter id. Sandbox and production need separate webhooks and secrets.
 
 ## Deploy
 
@@ -145,7 +150,13 @@ Custom domains are added under Pages → Custom domains; Cloudflare provisions T
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | GET | `/api/storage` | JWT | All stored values for the user |
-| GET/PUT/DELETE | `/api/storage/:key` | JWT | Single key (`profile`, `clients`, `invoices`, `nextnum`); PUT on `invoices` returns 402 when the free limit is reached |
+| GET/PUT/DELETE | `/api/storage/:key` | JWT | Single key (`profile`, `clients`); `invoices`/`nextnum` return 410 |
+| GET | `/api/invoices` | JWT | All invoices plus the predicted next number |
+| POST | `/api/invoices` | JWT | Create; server issues the number. 402 at the free limit, 409 if a custom number exists |
+| PATCH/DELETE | `/api/invoices/:id` | JWT | Status or Peppol state; soft delete. Content cannot be changed |
+| GET | `/api/invoices/next` | JWT | Predicted next number |
+| POST | `/api/invoices/import` | JWT | Restore from backup; existing numbers are skipped |
+| POST | `/api/peppol/webhook` | B2Brouter signature | Delivery-state updates by B2Brouter invoice id |
 | GET | `/api/account` | JWT | Plan, usage and price |
 | POST | `/api/billing/checkout` | JWT | Stripe Checkout session URL |
 | POST | `/api/billing/portal` | JWT | Stripe customer portal URL |
@@ -188,15 +199,17 @@ functions/
 ├── _middleware.js       Supabase JWT verification → context.data.user
 └── api/
     ├── storage/         index.js (GET all), [key].js (GET/PUT/DELETE)
+    ├── invoices/        index.js (list/create), [id].js (patch/delete), next.js, import.js
     ├── account.js
     ├── billing/         checkout.js, portal.js, webhook.js
     ├── vies.js, kvk.js
-    └── peppol/          lookup.js, send.js, status.js
+    └── peppol/          lookup.js, send.js, status.js, webhook.js
 
 lib/
 ├── auth.js              requireUser() guard for handlers
 ├── b2brouter.js         B2Brouter API client (import-and-send, status, directory)
 ├── accounts.js          Freemium entitlement logic
+├── invoices.js          Invoice rows, numbering, migration from the kv blob
 └── stripe.js            Minimal Stripe client + webhook signature check
 
 schema.sql               D1 schema
@@ -207,11 +220,10 @@ public/_routes.json      Routes only /api/* through Functions
 ## Roadmap
 
 - [ ] Automated tests (Vitest) and CI
-- [ ] Invoices as their own D1 table with server-issued numbers
 - [ ] Privacy statement, algemene voorwaarden, account deletion
 - [ ] Server-side PDF generation
 - [ ] Peppol sending enabled by default once the B2Brouter production key is in place
-- [ ] B2Brouter webhook receiver so delivery states update without polling
+- [ ] Restore view for soft-deleted invoices
 
 ## License
 

@@ -23,6 +23,7 @@ STRIPE_PRICE_ID = "price_1UEq6uKH5lzsZkI174DscKMV"
 #   npx wrangler pages secret put STRIPE_SECRET_KEY --project-name bouwfactuur
 #   npx wrangler pages secret put STRIPE_WEBHOOK_SECRET --project-name bouwfactuur
 #   npx wrangler pages secret put B2BROUTER_API_KEY --project-name bouwfactuur   # test_… or prod_…
+#   npx wrangler pages secret put B2BROUTER_WEBHOOK_SECRET --project-name bouwfactuur   # optional, enables /api/peppol/webhook
 #
 # Optional B2Brouter settings (not secret):
 # B2BROUTER_ACCOUNT_ID = "12345"

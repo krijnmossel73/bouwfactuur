@@ -37,12 +37,12 @@ export async function peppolLookup(kvkNummer) {
 /**
  * @returns {Promise<{success:boolean, invoiceId?:string, state?:string, stateLabel?:string, sandbox?:boolean, error?:string, needsSetup?:boolean}>}
  */
-export async function peppolSend(xmlString, recipientKvk, number) {
+export async function peppolSend(xmlString, recipientKvk, number, invoiceId = null) {
   try {
     const res = await fetch('/api/peppol/send', {
       method: 'POST',
       headers: await authHeaders(),
-      body: JSON.stringify({ xml: xmlString, recipientKvk, number }),
+      body: JSON.stringify({ xml: xmlString, recipientKvk, number, invoiceId }),
       signal: AbortSignal.timeout(40000),
     });
     if (res.status === 404) return { success: false, error: 'Peppol verzending niet beschikbaar in dev-modus.' };

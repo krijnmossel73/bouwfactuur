@@ -2,14 +2,15 @@
   "name": "bouwfactuur",
   "private": true,
   "version": "0.1.0",
-  "description": "Compliant Dutch construction invoicing — BTW verlegd, G-rekening, Wka",
+  "description": "Compliant Dutch construction invoicing \u2014 BTW verlegd, G-rekening, Wka",
   "type": "module",
   "scripts": {
     "dev": "npx wrangler pages dev -- npx vite",
     "dev:vite": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy": "npm run build && npx wrangler pages deploy dist --project-name bouwfactuur"
+    "deploy": "npm run build && npx wrangler pages deploy dist --project-name bouwfactuur",
+    "test": "node --no-warnings tests/invoices.test.mjs && node --no-warnings tests/webhook.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.1",
