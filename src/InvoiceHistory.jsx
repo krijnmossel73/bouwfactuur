@@ -1,10 +1,10 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { fmt, fmtDate } from './utils.js';
 import { BackIcon, PlusIcon, EyeIcon, CopyIcon, TrashIcon, ListIcon, DownIcon } from './Icons.jsx';
 import { btn1, btn2, sec, crd } from './styles.js';
 
 export default function InvoiceHistory({
-  onDeleteAccount,
+  onDeleteAccount, onListDeleted, onRestore,
   invoices, onBack, onNew, onLoad, onPdf, onDuplicate, onDelete,
   onToggleStatus, onExportBackup, onImportBackup,
   account, onUpgrade, onManageSubscription,
@@ -169,6 +169,8 @@ export default function InvoiceHistory({
             Zie de <a href="#/privacy" style={{ color: 'var(--tm)' }}>privacyverklaring</a> en <a href="#/voorwaarden" style={{ color: 'var(--tm)' }}>algemene voorwaarden</a>.
           </div>
 
+          <DeletedInvoices onList={onListDeleted} onRestore={onRestore} />
+
           <div style={{ marginTop: '22px', paddingTop: '14px', borderTop: '1px dashed var(--bd)' }}>
             <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--tm)', marginBottom: '6px' }}>Account verwijderen</div>
             <div style={{ fontSize: '12px', color: 'var(--tm)', lineHeight: 1.6, marginBottom: '8px' }}>
@@ -180,6 +182,66 @@ export default function InvoiceHistory({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Collapsible list of soft-deleted invoices with a restore action. Loaded on first open. */
+function DeletedInvoices({ onList, onRestore }) {
+  const [open, setOpen] = useState(false);
+  const [items, setItems] = useState(null); // null = not loaded
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  const load = async () => {
+    setBusy(true); setError(null);
+    try { setItems(await onList()); } catch { setError('Kon verwijderde facturen niet ophalen.'); }
+    setBusy(false);
+  };
+  const toggle = async () => {
+    const next = !open;
+    setOpen(next);
+    if (next && items === null) await load();
+  };
+  const restore = async (inv) => {
+    setBusy(true);
+    if (await onRestore(inv)) setItems((prev) => (prev || []).filter((i) => i.id !== inv.id));
+    setBusy(false);
+  };
+
+  return (
+    <div style={{ marginTop: '22px', paddingTop: '14px', borderTop: '1px dashed var(--bd)' }}>
+      <button onClick={toggle} aria-expanded={open} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'var(--fn)', fontSize: '12px', fontWeight: 600, color: 'var(--tm)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <TrashIcon /> Verwijderde facturen{items ? ` (${items.length})` : ''} <span style={{ fontWeight: 400 }}>{open ? '▴' : '▾'}</span>
+      </button>
+      {open && (
+        <div style={{ marginTop: '8px' }}>
+          {busy && items === null && <div style={{ fontSize: '12px', color: 'var(--tm)' }}>Laden…</div>}
+          {error && <div style={{ fontSize: '12px', color: 'var(--dn)' }}>{error} <button onClick={load} style={{ ...btn2, padding: '3px 8px', fontSize: '11px', marginLeft: '6px' }}>Opnieuw</button></div>}
+          {items && items.length === 0 && <div style={{ fontSize: '12px', color: 'var(--tm)' }}>Geen verwijderde facturen.</div>}
+          {items && items.map((inv) => (
+            <div key={inv.id} style={{ ...crd, padding: '10px 14px', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', opacity: 0.85 }}>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 600 }}>
+                  <span style={{ fontFamily: 'var(--fm)' }}>{inv.nummer}</span> — {inv.og?.naam || '—'}
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--tm)', marginTop: '2px' }}>
+                  {fmtDate(inv.date)} &nbsp;·&nbsp; <span style={{ fontFamily: 'var(--fm)' }}>{fmt(inv.totals?.totIncl ?? 0)}</span>
+                  {inv.deletedAt && <> &nbsp;·&nbsp; verwijderd op {fmtDate(String(inv.deletedAt).slice(0, 10))}</>}
+                </div>
+              </div>
+              <button onClick={() => restore(inv)} disabled={busy} style={{ ...btn2, padding: '6px 12px', fontSize: '12px', borderColor: 'var(--ok)', color: 'var(--ok)' }}>
+                Terugzetten
+              </button>
+            </div>
+          ))}
+          {items && items.length > 0 && (
+            <div style={{ fontSize: '11px', color: 'var(--tm)', marginTop: '4px', lineHeight: 1.5 }}>
+              Verwijderde facturen blijven bewaard (bewaarplicht 7 jaar) en tellen niet mee in het overzicht. Ze worden pas definitief gewist bij verwijdering van uw account.
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

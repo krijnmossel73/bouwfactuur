@@ -1,11 +1,12 @@
 /**
  * /api/invoices/:id
  *   PATCH  → body { status?: 'open'|'betaald', peppol?: {...}|null } → { invoice }
+ *            body { restore: true } → undo a soft delete → { invoice }
  *   DELETE → soft delete (bewaarplicht: the row is kept, hidden from lists)
  * Invoice content is immutable; there is deliberately no PUT.
  */
 import { jsonResponse } from '../../../lib/auth.js';
-import { patchInvoice, softDeleteInvoice } from '../../../lib/invoices.js';
+import { patchInvoice, softDeleteInvoice, restoreInvoice } from '../../../lib/invoices.js';
 import { guard, handleError } from '../../../lib/invoice-handlers.js';
 
 function id(context) {
@@ -21,6 +22,10 @@ export async function onRequestPatch(context) {
   let body;
   try { body = await context.request.json(); } catch { return jsonResponse({ error: 'invalid_json' }, 400); }
   try {
+    if (body?.restore === true) {
+      const invoice = await restoreInvoice(g.db, g.user.id, invId);
+      return jsonResponse({ invoice });
+    }
     const invoice = await patchInvoice(g.db, g.user.id, invId, { status: body?.status, peppol: body?.peppol });
     return jsonResponse({ invoice });
   } catch (err) {

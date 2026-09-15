@@ -101,6 +101,12 @@ export const invoicePatch = (id, patch) => api(`/api/invoices/${encodeURICompone
 
 export const invoiceDelete = (id) => api(`/api/invoices/${encodeURIComponent(id)}`, { method: 'DELETE' });
 
+/** Soft-deleted invoices. @returns {Promise<{invoices: object[]}>} */
+export const invoicesListDeleted = () => api('/api/invoices?deleted=1');
+
+/** Undo a soft delete. @returns {{invoice}} */
+export const invoiceRestore = (id) => api(`/api/invoices/${encodeURIComponent(id)}`, { method: 'PATCH', body: { restore: true } });
+
 /** @returns {Promise<{next: string}>} */
 export const invoiceNext = () => api('/api/invoices/next');
 

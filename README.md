@@ -19,7 +19,7 @@ Live: https://bouwfactuur.pages.dev
 - **Accounts**: Supabase Auth (email/password and Google); visitors see a public landing page and an explanation page at `#/uitleg`. Users can delete their account and all data from the history screen
 - **Legal**: privacyverklaring (`#/privacy`) and algemene voorwaarden with a processor clause (`#/voorwaarden`); operator details live in `src/legal.js`
 - **Cloud storage**: company profile, clients and invoices stored per user in Cloudflare D1, available across devices
-- **Invoice numbering**: issued server-side (`JJJJ-NNNN`, sequential per year) at the moment of saving, so two devices can never produce the same number; a custom number is accepted when unused. Saved invoices are immutable; deletion is a soft delete (bewaarplicht) and the number stays reserved
+- **Invoice numbering**: issued server-side (`JJJJ-NNNN`, sequential per year) at the moment of saving, so two devices can never produce the same number; a custom number is accepted when unused. Saved invoices are immutable; deletion is a soft delete (bewaarplicht) and the number stays reserved; deleted invoices can be restored from the history screen
 - **Freemium**: 2 invoices free (lifetime, enforced server-side), then BouwFactuur Pro via Stripe Checkout (iDEAL, card, SEPA) with a customer portal for managing the subscription
 - **Invoice status**: open/betaald per invoice with an outstanding-amount summary
 - **Backup & restore**: export all data to JSON and restore it
@@ -162,7 +162,8 @@ Custom domains are added under Pages → Custom domains; Cloudflare provisions T
 | GET/PUT/DELETE | `/api/storage/:key` | JWT | Single key (`profile`, `clients`); `invoices`/`nextnum` return 410 |
 | GET | `/api/invoices` | JWT | All invoices plus the predicted next number |
 | POST | `/api/invoices` | JWT | Create; server issues the number. 402 at the free limit, 409 if a custom number exists |
-| PATCH/DELETE | `/api/invoices/:id` | JWT | Status or Peppol state; soft delete. Content cannot be changed |
+| PATCH/DELETE | `/api/invoices/:id` | JWT | Status or Peppol state, or `{ restore: true }`; soft delete. Content cannot be changed |
+| GET | `/api/invoices?deleted=1` | JWT | Soft-deleted invoices (restore view) |
 | GET | `/api/invoices/next` | JWT | Predicted next number |
 | POST | `/api/pdf` | JWT | Render the invoice in the body to PDF |
 | GET | `/api/pdf?id=...` | JWT | PDF of a saved invoice |
@@ -237,7 +238,6 @@ public/_routes.json      Routes only /api/* through Functions
 
 - [ ] Broader test coverage (XML generator, totals, validation)
 - [ ] Self-host the web fonts (Google Fonts currently exposes visitor IPs to Google; noted in the privacy statement)
-- [ ] Restore view for soft-deleted invoices
 
 ## License
 

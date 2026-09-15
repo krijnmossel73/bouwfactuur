@@ -2,7 +2,7 @@
 // Run: npm test
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
-import { createInvoice, listInvoices, nextNumber, patchInvoice, softDeleteInvoice, migrateLegacyBlob, updatePeppolByRef } from '../lib/invoices.js';
+import { createInvoice, listInvoices, listDeletedInvoices, restoreInvoice, nextNumber, patchInvoice, softDeleteInvoice, migrateLegacyBlob, updatePeppolByRef } from '../lib/invoices.js';
 
 // Minimal D1 shim over node:sqlite
 function d1(db) {
@@ -41,6 +41,10 @@ console.log('patched:', p.status, p.peppol);
 console.log('webhook updated rows:', await updatePeppolByRef(db, '99', { state: 'registered', stateLabel: 'Afgeleverd' }));
 await softDeleteInvoice(db, 'u1', b.id);
 console.log('list after delete:', (await listInvoices(db, 'u1')).map(i => `${i.nummer}:${i.status}:${i.peppol?.state||'-'}`), 'next:', await nextNumber(db, 'u1', 2026));
+console.log('deleted list:', (await listDeletedInvoices(db, 'u1')).map(i => `${i.nummer}:${Boolean(i.deletedAt)}`));
+const r = await restoreInvoice(db, 'u1', b.id);
+console.log('restored:', r.nummer, 'deleted now:', (await listDeletedInvoices(db, 'u1')).length, 'list:', (await listInvoices(db, 'u1')).length);
+try { await restoreInvoice(db, 'u1', b.id); } catch (e) { console.log('restore twice →', e.status); }
 // other user can't patch
 try { await patchInvoice(db, 'u2', a.id, { status: 'open' }); } catch (e) { console.log('cross-user →', e.status); }
 // legacy migration

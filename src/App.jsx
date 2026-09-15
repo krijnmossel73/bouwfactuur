@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { storageSet, setAuthTokenProvider, loadAll, KEYS, invoiceCreate, invoicePatch, invoiceDelete, invoicesImport, accountDelete, pdfForDraft, pdfForSaved, downloadBlob } from './storage.js';
+import { storageSet, setAuthTokenProvider, loadAll, KEYS, invoiceCreate, invoicePatch, invoiceDelete, invoicesImport, accountDelete, pdfForDraft, pdfForSaved, downloadBlob, invoicesListDeleted, invoiceRestore } from './storage.js';
 import { supabase } from './supabase.js';
 import AuthModal from './AuthModal.jsx';
 import LandingPage from './LandingPage.jsx';
@@ -280,7 +280,7 @@ export default function App() {
 
   const delInvoice = async (id) => {
     const inv = invoices.find((i) => i.id === id);
-    if (!window.confirm(`Factuur ${inv?.nummer || ''} verwijderen uit uw overzicht?\n\nLet op: de bewaarplicht voor facturen is 7 jaar. Het factuurnummer blijft gereserveerd.`)) return;
+    if (!window.confirm(`Factuur ${inv?.nummer || ''} verwijderen uit uw overzicht?\n\nDe factuur blijft bewaard (bewaarplicht 7 jaar) en kan via "Verwijderde facturen" worden teruggezet. Het factuurnummer blijft gereserveerd.`)) return;
     try { await invoiceDelete(id); } catch (err) { handleApiError(err); return; }
     setInvoices((prev) => prev.filter((i) => i.id !== id));
     flash('Verwijderd');
@@ -386,6 +386,16 @@ export default function App() {
     }
   };
   const printPreview = () => { setView('pdf'); };
+  const listDeleted = async () => (await invoicesListDeleted()).invoices;
+  const restoreInvoice = async (inv) => {
+    try {
+      const { invoice } = await invoiceRestore(inv.id);
+      setInvoices((prev) => [invoice, ...prev.filter((i) => i.id !== invoice.id)]
+        .sort((a, b) => String(b.date).localeCompare(String(a.date))));
+      flash(`Factuur ${invoice.nummer} teruggezet`);
+      return true;
+    } catch (err) { handleApiError(err); return false; }
+  };
   const downloadSavedPdf = async (inv) => {
     try {
       const { blob, filename } = await pdfForSaved(inv.id);
@@ -473,6 +483,8 @@ export default function App() {
         onNew={newInvoice}
         onLoad={loadInvoice}
         onPdf={downloadSavedPdf}
+        onListDeleted={listDeleted}
+        onRestore={restoreInvoice}
         onDuplicate={dupInvoice}
         onDelete={delInvoice}
         onToggleStatus={toggleInvoiceStatus}
